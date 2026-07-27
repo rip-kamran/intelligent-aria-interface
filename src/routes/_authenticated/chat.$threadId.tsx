@@ -19,7 +19,7 @@ import { AriaLogo } from "@/components/aria-logo";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
-export const Route = createFileRoute("/chat/$threadId")({
+export const Route = createFileRoute("/_authenticated/chat/$threadId")({
   head: () => ({
     meta: [
       { title: "Chat with Aria" },

@@ -30,12 +30,12 @@ export const getThread = createServerFn({ method: "POST" })
         .eq("thread_id", data.threadId)
         .order("created_at", { ascending: true }),
     ]);
-    const messages: UIMessage[] = (msgs ?? []).map((m) => ({
+    const messages = (msgs ?? []).map((m) => ({
       id: (m.message_id as string) || (m.id as string),
-      role: m.role as UIMessage["role"],
-      parts: m.parts as UIMessage["parts"],
+      role: m.role as string,
+      parts: m.parts as unknown,
     }));
-    return { thread: thread ?? null, messages };
+    return { thread: thread ?? null, messages: messages as unknown as UIMessage[] };
   });
 
 export const deleteThreadFn = createServerFn({ method: "POST" })

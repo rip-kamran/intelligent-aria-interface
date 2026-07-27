@@ -97,7 +97,7 @@ export const Route = createFileRoute("/api/chat")({
             thread_id: body.threadId,
             user_id: auth.userId,
             role: "user",
-            parts: userMsg.parts,
+            parts: userMsg.parts as unknown as never,
             message_id: userMsg.id,
           });
         }

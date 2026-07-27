@@ -2,7 +2,7 @@ import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useEffect } from "react";
 import { AriaLogo } from "@/components/aria-logo";
 
-export const Route = createFileRoute("/chat/")({
+export const Route = createFileRoute("/_authenticated/chat/")({
   head: () => ({
     meta: [
       { title: "Chat with Aria" },
