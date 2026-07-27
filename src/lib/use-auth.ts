@@ -1,36 +1,24 @@
-import { useEffect, useState } from "react";
-import { onAuthStateChanged, signInWithPopup, signOut, type User } from "firebase/auth";
-import { getFirebase, googleProvider } from "@/lib/firebase";
+// Local-only auth stub — no Firebase required.
+// Uses a stable per-browser "guest" identity so threads.ts keeps its API surface.
+
+const GUEST_KEY = "aria.guest.uid";
+
+function getGuestId(): string {
+  if (typeof window === "undefined") return "guest";
+  let id = localStorage.getItem(GUEST_KEY);
+  if (!id) {
+    id = "guest-" + crypto.randomUUID();
+    localStorage.setItem(GUEST_KEY, id);
+  }
+  return id;
+}
 
 export function useAuth() {
-  const [user, setUser] = useState<User | null>(null);
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    const fb = getFirebase();
-    if (!fb) {
-      setLoading(false);
-      return;
-    }
-    const unsub = onAuthStateChanged(fb.auth, (u) => {
-      setUser(u);
-      setLoading(false);
-    });
-    return () => unsub();
-  }, []);
-
+  const uid = typeof window === "undefined" ? "guest" : getGuestId();
   return {
-    user,
-    loading,
-    signInGoogle: async () => {
-      const fb = getFirebase();
-      if (!fb) throw new Error("Firebase not configured");
-      await signInWithPopup(fb.auth, googleProvider);
-    },
-    signOut: async () => {
-      const fb = getFirebase();
-      if (!fb) return;
-      await signOut(fb.auth);
-    },
+    user: { uid } as { uid: string },
+    loading: false,
+    signInGoogle: async () => {},
+    signOut: async () => {},
   };
 }
