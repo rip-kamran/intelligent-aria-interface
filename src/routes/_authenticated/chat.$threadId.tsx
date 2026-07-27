@@ -61,7 +61,7 @@ function ChatThread() {
     let cancelled = false;
     setInitial(null);
     getFn({ data: { threadId } })
-      .then((r) => {
+      .then((r: Awaited<ReturnType<typeof getThread>>) => {
         if (cancelled) return;
         const msgs: UIMessage[] = r.messages.map((m) => ({
           id: m.id,

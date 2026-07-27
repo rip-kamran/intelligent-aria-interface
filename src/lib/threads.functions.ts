@@ -2,7 +2,8 @@ import { createServerFn } from "@tanstack/react-start";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { z } from "zod";
 
-export type StoredMessage = { id: string; role: string; parts: unknown };
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+export type StoredMessage = { id: string; role: string; parts: any };
 
 export const listThreads = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
