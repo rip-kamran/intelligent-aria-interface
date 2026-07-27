@@ -1,25 +1,27 @@
-import { createFileRoute, useNavigate, useParams } from "@tanstack/react-router";
+import { createFileRoute, useNavigate, useParams, Link } from "@tanstack/react-router";
+import { useServerFn } from "@tanstack/react-start";
 import { useEffect, useRef, useState } from "react";
 import { useChat } from "@ai-sdk/react";
 import { DefaultChatTransport, type UIMessage } from "ai";
 import ReactMarkdown from "react-markdown";
-import { Plus, Send, LogOut, Trash2, Menu, X } from "lucide-react";
+import { Plus, Send, LogOut, Trash2, Menu, X, Search, Download, Settings } from "lucide-react";
+import { toast, Toaster } from "sonner";
+import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/use-auth";
-import { isFirebaseConfigured } from "@/lib/firebase";
-import {
-  createThread,
-  deleteThread,
-  loadMessages,
-  renameThread,
-  saveMessage,
-  subscribeThreads,
-  type Thread,
-} from "@/lib/threads";
 import { AriaLogo } from "@/components/aria-logo";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
+import { MODEL_LIST, type ModelId } from "@/lib/aria-prompts";
+import {
+  listThreads,
+  getThread,
+  deleteThreadFn,
+  updateThreadModel,
+  searchThreads,
+} from "@/lib/threads.functions";
 
-export const Route = createFileRoute("/chat/$threadId")({
+export const Route = createFileRoute("/_authenticated/chat/$threadId")({
   head: () => ({
     meta: [
       { title: "Chat with Aria" },
@@ -29,54 +31,51 @@ export const Route = createFileRoute("/chat/$threadId")({
   component: ChatThread,
 });
 
+type ThreadRow = { id: string; title: string; model: string; updated_at: string };
+
 function ChatThread() {
-  const { threadId } = useParams({ from: "/chat/$threadId" });
-  const { user, loading, signOut } = useAuth();
+  const { threadId } = useParams({ from: "/_authenticated/chat/$threadId" });
+  const { user, signOut } = useAuth();
   const navigate = useNavigate();
+
+  const listFn = useServerFn(listThreads);
+  const getFn = useServerFn(getThread);
+  const delFn = useServerFn(deleteThreadFn);
+  const setModelFn = useServerFn(updateThreadModel);
+  const searchFn = useServerFn(searchThreads);
+
+  const [threads, setThreads] = useState<ThreadRow[]>([]);
+  const [initial, setInitial] = useState<UIMessage[] | null>(null);
+  const [threadModel, setThreadModel] = useState<ModelId>("verse");
+  const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [query, setQuery] = useState("");
+
+  const refreshThreads = () => listFn().then((r) => setThreads(r as ThreadRow[])).catch(() => {});
 
   useEffect(() => {
-    if (!loading && !user && isFirebaseConfigured) {
-      navigate({ to: "/chat", replace: true });
-    }
-  }, [loading, user, navigate]);
-
-  if (!isFirebaseConfigured || loading || !user) {
-    return (
-      <div className="flex min-h-screen items-center justify-center bg-aria-hero">
-        <AriaLogo className="h-10 w-10 animate-pulse" />
-      </div>
-    );
-  }
-
-  return <ChatShell key={threadId} threadId={threadId} uid={user.uid} onSignOut={signOut} />;
-}
-
-function ChatShell({
-  threadId,
-  uid,
-  onSignOut,
-}: {
-  threadId: string;
-  uid: string;
-  onSignOut: () => Promise<void>;
-}) {
-  const [threads, setThreads] = useState<Thread[]>([]);
-  const [initial, setInitial] = useState<UIMessage[] | null>(null);
-  const [sidebarOpen, setSidebarOpen] = useState(false);
-  const navigate = useNavigate();
-
-  useEffect(() => subscribeThreads(uid, setThreads), [uid]);
+    refreshThreads();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [threadId]);
 
   useEffect(() => {
     let cancelled = false;
     setInitial(null);
-    loadMessages(uid, threadId).then((msgs) => {
-      if (!cancelled) setInitial(msgs);
-    });
+    getFn({ data: { threadId } })
+      .then((r: Awaited<ReturnType<typeof getThread>>) => {
+        if (cancelled) return;
+        const msgs: UIMessage[] = r.messages.map((m) => ({
+          id: m.id,
+          role: m.role as UIMessage["role"],
+          parts: m.parts as UIMessage["parts"],
+        }));
+        setInitial(msgs);
+        if (r.thread?.model) setThreadModel(r.thread.model as ModelId);
+      })
+      .catch(() => setInitial([]));
     return () => {
       cancelled = true;
     };
-  }, [uid, threadId]);
+  }, [threadId, getFn]);
 
   const newChat = () => {
     const id = crypto.randomUUID();
@@ -84,9 +83,36 @@ function ChatShell({
     setSidebarOpen(false);
   };
 
+  const handleDelete = async (id: string) => {
+    await delFn({ data: { threadId: id } });
+    await refreshThreads();
+    if (id === threadId) newChat();
+  };
+
+  const changeModel = async (m: ModelId) => {
+    setThreadModel(m);
+    try {
+      await setModelFn({ data: { threadId, model: m } });
+    } catch {
+      /* thread may not exist yet; will be set on first send */
+    }
+  };
+
+  const runSearch = async () => {
+    const q = query.trim();
+    if (!q) {
+      refreshThreads();
+      return;
+    }
+    const r = await searchFn({ data: { q } });
+    setThreads(r as ThreadRow[]);
+  };
+
+  if (!user) return null;
+
   return (
     <div className="flex h-screen w-full overflow-hidden bg-background">
-      {/* Sidebar */}
+      <Toaster theme="dark" />
       <aside
         className={cn(
           "fixed inset-y-0 left-0 z-40 flex w-72 flex-col border-r border-border/60 bg-card/70 backdrop-blur-xl transition-transform md:relative md:translate-x-0",
@@ -107,14 +133,23 @@ function ChatShell({
           </button>
         </div>
 
-        <div className="px-3">
+        <div className="space-y-2 px-3">
           <Button onClick={newChat} className="w-full justify-start rounded-lg" variant="secondary">
-            <Plus className="mr-2 h-4 w-4" />
-            New chat
+            <Plus className="mr-2 h-4 w-4" /> New chat
           </Button>
+          <div className="relative">
+            <Search className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
+            <Input
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              onKeyDown={(e) => e.key === "Enter" && runSearch()}
+              placeholder="Search chats…"
+              className="h-9 pl-8 text-sm"
+            />
+          </div>
         </div>
 
-        <div className="mt-4 flex-1 overflow-y-auto px-2 pb-2">
+        <div className="mt-3 flex-1 overflow-y-auto px-2 pb-2">
           <p className="px-2 py-1.5 text-xs text-muted-foreground">Recent</p>
           <ul className="space-y-0.5">
             {threads.map((t) => (
@@ -132,10 +167,9 @@ function ChatShell({
                   <span className="truncate pr-6">{t.title || "New chat"}</span>
                 </button>
                 <button
-                  onClick={async (e) => {
+                  onClick={(e) => {
                     e.stopPropagation();
-                    await deleteThread(uid, t.id);
-                    if (t.id === threadId) newChat();
+                    handleDelete(t.id);
                   }}
                   className="absolute right-1.5 top-1/2 -translate-y-1/2 rounded p-1.5 text-muted-foreground opacity-0 transition-opacity hover:bg-background hover:text-destructive group-hover:opacity-100"
                   aria-label="Delete chat"
@@ -150,13 +184,18 @@ function ChatShell({
           </ul>
         </div>
 
-        <div className="border-t border-border/60 p-3">
-          <button
-            onClick={() => onSignOut()}
+        <div className="space-y-1 border-t border-border/60 p-3">
+          <Link
+            to="/settings"
             className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-sm text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
           >
-            <LogOut className="h-4 w-4" />
-            Sign out
+            <Settings className="h-4 w-4" /> Settings
+          </Link>
+          <button
+            onClick={() => signOut()}
+            className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-sm text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+          >
+            <LogOut className="h-4 w-4" /> Sign out
           </button>
         </div>
       </aside>
@@ -168,7 +207,6 @@ function ChatShell({
         />
       )}
 
-      {/* Main */}
       <main className="flex min-w-0 flex-1 flex-col">
         <header className="flex items-center justify-between border-b border-border/60 px-4 py-3 md:px-6">
           <button
@@ -180,9 +218,19 @@ function ChatShell({
           </button>
           <div className="flex items-center gap-2">
             <AriaLogo className="h-5 w-5" />
-            <span className="text-sm font-medium">Aria</span>
+            <select
+              value={threadModel}
+              onChange={(e) => changeModel(e.target.value as ModelId)}
+              className="rounded-md border border-border/60 bg-card/60 px-2 py-1 text-sm focus:outline-none focus:ring-1 focus:ring-primary"
+            >
+              {MODEL_LIST.map((m) => (
+                <option key={m.id} value={m.id}>
+                  Aria {m.label}
+                </option>
+              ))}
+            </select>
           </div>
-          <div className="w-8" />
+          <ExportButton messages={initial ?? []} title={threads.find((t) => t.id === threadId)?.title || "chat"} />
         </header>
 
         {initial === null ? (
@@ -190,76 +238,108 @@ function ChatShell({
             <AriaLogo className="h-8 w-8 animate-pulse" />
           </div>
         ) : (
-          <ChatConversation uid={uid} threadId={threadId} initialMessages={initial} />
+          <ChatConversation
+            threadId={threadId}
+            model={threadModel}
+            initialMessages={initial}
+            onFirstMessage={refreshThreads}
+          />
         )}
       </main>
     </div>
   );
 }
 
+function ExportButton({ messages, title }: { messages: UIMessage[]; title: string }) {
+  const doExport = () => {
+    if (messages.length === 0) {
+      toast("Nothing to export yet.");
+      return;
+    }
+    const md = messages
+      .map((m) => {
+        const text = m.parts
+          .map((p) => (p.type === "text" ? p.text : ""))
+          .join("")
+          .trim();
+        return `### ${m.role === "user" ? "You" : "Aria"}\n\n${text}\n`;
+      })
+      .join("\n---\n\n");
+    const blob = new Blob([`# ${title}\n\n${md}`], { type: "text/markdown" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `${title.replace(/[^a-z0-9]+/gi, "-").toLowerCase()}.md`;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+  return (
+    <button
+      onClick={doExport}
+      className="rounded-md p-2 text-muted-foreground hover:bg-accent hover:text-foreground"
+      aria-label="Export chat"
+      title="Export chat as Markdown"
+    >
+      <Download className="h-4 w-4" />
+    </button>
+  );
+}
+
 function ChatConversation({
-  uid,
   threadId,
+  model,
   initialMessages,
+  onFirstMessage,
 }: {
-  uid: string;
   threadId: string;
+  model: ModelId;
   initialMessages: UIMessage[];
+  onFirstMessage: () => void;
 }) {
   const [input, setInput] = useState("");
   const scrollRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
-  const persistedIds = useRef(new Set(initialMessages.map((m) => m.id)));
-  const threadCreated = useRef(initialMessages.length > 0);
+  const wasFirst = useRef(initialMessages.length === 0);
 
   const { messages, sendMessage, status, error } = useChat({
     id: threadId,
     messages: initialMessages,
-    transport: new DefaultChatTransport({ api: "/api/chat" }),
+    transport: new DefaultChatTransport({
+      api: "/api/chat",
+      body: { threadId, model },
+      fetch: async (input, init) => {
+        const { data } = await supabase.auth.getSession();
+        const headers = new Headers(init?.headers);
+        if (data.session?.access_token) {
+          headers.set("Authorization", `Bearer ${data.session.access_token}`);
+        }
+        return fetch(input, { ...init, headers });
+      },
+    }),
   });
 
-  // Autoscroll
   useEffect(() => {
     scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: "smooth" });
   }, [messages, status]);
 
-  // Focus input on load, thread switch, and after streaming
   useEffect(() => {
     inputRef.current?.focus();
   }, [threadId, status === "ready"]);
 
-  // Persist finished messages
   useEffect(() => {
-    if (status === "streaming" || status === "submitted") return;
-    (async () => {
-      for (const m of messages) {
-        if (!persistedIds.current.has(m.id)) {
-          if (!threadCreated.current) {
-            const title = extractText(messages[0]).slice(0, 60) || "New chat";
-            await createThread(uid, threadId, title);
-            threadCreated.current = true;
-          }
-          await saveMessage(uid, threadId, m);
-          persistedIds.current.add(m.id);
-        }
-      }
-      // Rename thread after first assistant reply if title is still generic
-      if (threadCreated.current && messages.length >= 2) {
-        const first = extractText(messages[0]);
-        if (first) await renameThread(uid, threadId, first.slice(0, 60));
-      }
-    })().catch(console.error);
-  }, [messages, status, uid, threadId]);
+    if (status === "ready" && wasFirst.current && messages.length > 0) {
+      wasFirst.current = false;
+      onFirstMessage();
+    }
+  }, [status, messages, onFirstMessage]);
 
   const isLoading = status === "submitted" || status === "streaming";
-
   const submit = async () => {
     const text = input.trim();
     if (!text || isLoading) return;
     setInput("");
     await sendMessage({ text });
   };
-
   const isEmpty = messages.length === 0;
 
   return (
@@ -290,14 +370,13 @@ function ChatConversation({
             )}
             {error && (
               <div className="rounded-lg border border-destructive/40 bg-destructive/10 p-3 text-sm text-destructive-foreground">
-                Something went wrong. Please try again.
+                {error.message || "Something went wrong."}
               </div>
             )}
           </div>
         )}
       </div>
 
-      {/* Composer */}
       <div className="border-t border-border/60 bg-background/80 backdrop-blur">
         <div className="mx-auto max-w-3xl px-4 py-4 md:px-8">
           <form
@@ -320,9 +399,6 @@ function ChatConversation({
               rows={1}
               placeholder="Message Aria…"
               className="max-h-40 min-h-[36px] flex-1 resize-none bg-transparent py-2 text-[15px] leading-relaxed text-foreground placeholder:text-muted-foreground focus:outline-none"
-              style={{
-                height: "auto",
-              }}
               autoFocus
             />
             <Button
