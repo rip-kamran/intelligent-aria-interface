@@ -88,7 +88,7 @@ export const Route = createFileRoute("/api/chat")({
         const chain = MODELS[modelId].chain;
 
         // Build system prompt with custom instructions
-        let system = MODEL_PROMPTS[modelId];
+        let system = FULL_MODEL_PROMPTS[modelId];
         if (profile?.display_name) {
           system += `\n\nThe user's name is ${profile.display_name}.`;
         }
