@@ -158,7 +158,15 @@ export const Route = createFileRoute("/api/chat")({
           }
         }
 
-        // No user key worked — fallback to Lovable AI (free tier).
+        // No user key worked — fallback to built-in Aria (free tier, rate limited).
+        const usage = await checkAndCountFreeUsage(auth.userId);
+        if (!usage.allowed) {
+          return new Response(
+            `Daily limit reached — you've used all ${FREE_DAILY_MESSAGE_LIMIT} free Aria messages for today. Add your own API key in Settings for unlimited use, or come back tomorrow.`,
+            { status: 429 },
+          );
+        }
+
         try {
           const model = createLovableFallbackModel();
           const result = streamText({
