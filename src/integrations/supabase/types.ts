@@ -165,7 +165,7 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
-      increment_daily_usage: { Args: never; Returns: number }
+      [_ in never]: never
     }
     Enums: {
       [_ in never]: never
