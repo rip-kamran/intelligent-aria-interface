@@ -2,8 +2,32 @@ import { createFileRoute } from "@tanstack/react-router";
 import { convertToModelMessages, streamText, type UIMessage } from "ai";
 import { createClient } from "@supabase/supabase-js";
 import type { Database } from "@/integrations/supabase/types";
-import { MODEL_PROMPTS, MODELS, type ModelId } from "@/lib/aria-prompts";
+import { MODELS, type ModelId } from "@/lib/aria-prompts";
+import { FULL_MODEL_PROMPTS } from "@/lib/model-prompts.server";
 import { createProviderModel, createLovableFallbackModel } from "@/lib/ai-gateway.server";
+
+// Free built-in Aria (no personal API key) is capped per user, per UTC day.
+const FREE_DAILY_MESSAGE_LIMIT = 30;
+
+async function checkAndCountFreeUsage(userId: string) {
+  const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+  const day = new Date().toISOString().slice(0, 10);
+  const { data } = await supabaseAdmin
+    .from("usage_daily")
+    .select("message_count")
+    .eq("user_id", userId)
+    .eq("day", day)
+    .maybeSingle();
+  const used = data?.message_count ?? 0;
+  if (used >= FREE_DAILY_MESSAGE_LIMIT) return { allowed: false, used };
+  await supabaseAdmin
+    .from("usage_daily")
+    .upsert(
+      { user_id: userId, day, message_count: used + 1 },
+      { onConflict: "user_id,day" },
+    );
+  return { allowed: true, used: used + 1 };
+}
 
 type ChatBody = {
   messages?: UIMessage[];
@@ -64,7 +88,7 @@ export const Route = createFileRoute("/api/chat")({
         const chain = MODELS[modelId].chain;
 
         // Build system prompt with custom instructions
-        let system = MODEL_PROMPTS[modelId];
+        let system = FULL_MODEL_PROMPTS[modelId];
         if (profile?.display_name) {
           system += `\n\nThe user's name is ${profile.display_name}.`;
         }
@@ -134,7 +158,15 @@ export const Route = createFileRoute("/api/chat")({
           }
         }
 
-        // No user key worked — fallback to Lovable AI (free tier).
+        // No user key worked — fallback to built-in Aria (free tier, rate limited).
+        const usage = await checkAndCountFreeUsage(auth.userId);
+        if (!usage.allowed) {
+          return new Response(
+            `Daily limit reached — you've used all ${FREE_DAILY_MESSAGE_LIMIT} free Aria messages for today. Add your own API key in Settings for unlimited use, or come back tomorrow.`,
+            { status: 429 },
+          );
+        }
+
         try {
           const model = createLovableFallbackModel();
           const result = streamText({
