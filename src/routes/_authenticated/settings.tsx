@@ -8,7 +8,18 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { MODEL_LIST, PROVIDERS, type ModelId, type ProviderId } from "@/lib/aria-prompts";
+import {
+  MODEL_LIST,
+  MODELS,
+  PLANS,
+  PLAN_LIST,
+  PROVIDERS,
+  canUseModel,
+  type ModelId,
+  type PlanId,
+  type ProviderId,
+} from "@/lib/aria-prompts";
+
 import {
   getProfile,
   updateProfile,
