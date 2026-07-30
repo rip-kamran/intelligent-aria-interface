@@ -47,7 +47,8 @@ function SettingsPage() {
 
   const [displayName, setDisplayName] = useState("");
   const [instructions, setInstructions] = useState("");
-  const [preferredModel, setPreferredModel] = useState<ModelId>("verse");
+  const [preferredModel, setPreferredModel] = useState<ModelId>("prose");
+  const [plan, setPlan] = useState<PlanId>("free");
   const [keys, setKeys] = useState<Array<{ provider: string; masked: string }>>([]);
   const [inputs, setInputs] = useState<Record<string, string>>({});
   const [saving, setSaving] = useState(false);
@@ -59,9 +60,11 @@ function SettingsPage() {
       .then((p) => {
         setDisplayName(p.display_name || "");
         setInstructions(p.custom_instructions || "");
-        setPreferredModel((p.preferred_model as ModelId) || "verse");
+        setPreferredModel((p.preferred_model as ModelId) || "prose");
+        setPlan((((p as { plan?: string }).plan ?? "free") as PlanId));
       })
       .catch(() => {});
+
     refreshKeys();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
