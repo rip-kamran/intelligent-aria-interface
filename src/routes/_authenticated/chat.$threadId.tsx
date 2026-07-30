@@ -261,8 +261,6 @@ function ChatThread() {
               </Link>
             )}
           </div>
-
-          </div>
           <ExportButton messages={initial ?? []} title={threads.find((t) => t.id === threadId)?.title || "chat"} />
         </header>
 
