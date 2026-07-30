@@ -37,6 +37,10 @@ function Landing() {
           <a href="#about" className="transition-colors hover:text-foreground">
             About
           </a>
+          <a href="#pricing" className="transition-colors hover:text-foreground">
+            Pricing
+          </a>
+
           <a href="#creator" className="transition-colors hover:text-foreground">
             Creator
           </a>
