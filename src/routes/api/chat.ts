@@ -81,7 +81,7 @@ export const Route = createFileRoute("/api/chat")({
         const [{ data: profile }, { data: keyRows }] = await Promise.all([
           auth.client
             .from("profiles")
-            .select("preferred_model, custom_instructions, display_name")
+            .select("preferred_model, custom_instructions, display_name, plan")
             .eq("id", auth.userId)
             .maybeSingle(),
           auth.client.from("user_api_keys").select("provider, api_key"),
@@ -89,9 +89,18 @@ export const Route = createFileRoute("/api/chat")({
         const keys: Record<string, string> = {};
         for (const r of keyRows ?? []) keys[r.provider as string] = r.api_key as string;
 
-        const modelId: ModelId =
-          body.model || (profile?.preferred_model as ModelId) || "verse";
+        const plan = (((profile as { plan?: string } | null)?.plan) ?? "free") as PlanId;
+        const requested: ModelId =
+          body.model || (profile?.preferred_model as ModelId) || "prose";
+        const modelId: ModelId = MODELS[requested] ? requested : "prose";
+        if (!canUseModel(plan, modelId)) {
+          return new Response(
+            `Aria ${MODELS[modelId].label} is part of the ${MODELS[modelId].tier === "max" ? "Max" : "Pro"} plan. Upgrade to unlock it, or switch to a model included in your plan.`,
+            { status: 403 },
+          );
+        }
         const chain = MODELS[modelId].chain;
+
 
         // Build system prompt with custom instructions
         let system = FULL_MODEL_PROMPTS[modelId];
