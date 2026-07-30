@@ -2,14 +2,19 @@ import { createFileRoute } from "@tanstack/react-router";
 import { convertToModelMessages, streamText, type UIMessage } from "ai";
 import { createClient } from "@supabase/supabase-js";
 import type { Database } from "@/integrations/supabase/types";
-import { MODELS, type ModelId } from "@/lib/aria-prompts";
+import {
+  MODELS,
+  DAILY_LIMITS,
+  canUseModel,
+  type ModelId,
+  type PlanId,
+} from "@/lib/aria-prompts";
 import { FULL_MODEL_PROMPTS } from "@/lib/model-prompts.server";
 import { createProviderModel, createLovableFallbackModel } from "@/lib/ai-gateway.server";
 
-// Free built-in Aria (no personal API key) is capped per user, per UTC day.
-const FREE_DAILY_MESSAGE_LIMIT = 30;
-
-async function checkAndCountFreeUsage(userId: string) {
+// Built-in Aria (no personal API key) is capped per user, per UTC day, by plan.
+async function checkAndCountFreeUsage(userId: string, plan: PlanId) {
+  const limit = DAILY_LIMITS[plan];
   const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
   const day = new Date().toISOString().slice(0, 10);
   const { data } = await supabaseAdmin
@@ -19,15 +24,16 @@ async function checkAndCountFreeUsage(userId: string) {
     .eq("day", day)
     .maybeSingle();
   const used = data?.message_count ?? 0;
-  if (used >= FREE_DAILY_MESSAGE_LIMIT) return { allowed: false, used };
+  if (used >= limit) return { allowed: false, used, limit };
   await supabaseAdmin
     .from("usage_daily")
     .upsert(
       { user_id: userId, day, message_count: used + 1 },
       { onConflict: "user_id,day" },
     );
-  return { allowed: true, used: used + 1 };
+  return { allowed: true, used: used + 1, limit };
 }
+
 
 type ChatBody = {
   messages?: UIMessage[];
@@ -75,7 +81,7 @@ export const Route = createFileRoute("/api/chat")({
         const [{ data: profile }, { data: keyRows }] = await Promise.all([
           auth.client
             .from("profiles")
-            .select("preferred_model, custom_instructions, display_name")
+            .select("preferred_model, custom_instructions, display_name, plan")
             .eq("id", auth.userId)
             .maybeSingle(),
           auth.client.from("user_api_keys").select("provider, api_key"),
@@ -83,9 +89,18 @@ export const Route = createFileRoute("/api/chat")({
         const keys: Record<string, string> = {};
         for (const r of keyRows ?? []) keys[r.provider as string] = r.api_key as string;
 
-        const modelId: ModelId =
-          body.model || (profile?.preferred_model as ModelId) || "verse";
+        const plan = (((profile as { plan?: string } | null)?.plan) ?? "free") as PlanId;
+        const requested: ModelId =
+          body.model || (profile?.preferred_model as ModelId) || "prose";
+        const modelId: ModelId = MODELS[requested] ? requested : "prose";
+        if (!canUseModel(plan, modelId)) {
+          return new Response(
+            `Aria ${MODELS[modelId].label} is part of the ${MODELS[modelId].tier === "max" ? "Max" : "Pro"} plan. Upgrade to unlock it, or switch to a model included in your plan.`,
+            { status: 403 },
+          );
+        }
         const chain = MODELS[modelId].chain;
+
 
         // Build system prompt with custom instructions
         let system = FULL_MODEL_PROMPTS[modelId];
@@ -158,14 +173,15 @@ export const Route = createFileRoute("/api/chat")({
           }
         }
 
-        // No user key worked — fallback to built-in Aria (free tier, rate limited).
-        const usage = await checkAndCountFreeUsage(auth.userId);
+        // No user key worked — fallback to built-in Aria (rate limited by plan).
+        const usage = await checkAndCountFreeUsage(auth.userId, plan);
         if (!usage.allowed) {
           return new Response(
-            `Daily limit reached — you've used all ${FREE_DAILY_MESSAGE_LIMIT} free Aria messages for today. Add your own API key in Settings for unlimited use, or come back tomorrow.`,
+            `Daily limit reached — you've used all ${usage.limit} Aria messages included in your ${plan === "free" ? "Free" : plan === "pro" ? "Pro" : "Max"} plan today. Upgrade your plan or add your own API key in Settings for unlimited use.`,
             { status: 429 },
           );
         }
+
 
         try {
           const model = createLovableFallbackModel();

@@ -1,7 +1,9 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { ArrowRight, Sparkles, Shield, Zap } from "lucide-react";
+import { ArrowRight, Sparkles, Shield, Zap, Check } from "lucide-react";
 import { AriaLogo } from "@/components/aria-logo";
 import { Button } from "@/components/ui/button";
+import { PLAN_LIST } from "@/lib/aria-prompts";
+
 
 export const Route = createFileRoute("/")({
   head: () => ({
@@ -35,6 +37,10 @@ function Landing() {
           <a href="#about" className="transition-colors hover:text-foreground">
             About
           </a>
+          <a href="#pricing" className="transition-colors hover:text-foreground">
+            Pricing
+          </a>
+
           <a href="#creator" className="transition-colors hover:text-foreground">
             Creator
           </a>
@@ -113,7 +119,61 @@ function Landing() {
         </div>
       </section>
 
+      {/* Pricing */}
+      <section id="pricing" className="mx-auto max-w-6xl px-6 pb-28">
+        <div className="mb-12 text-center">
+          <p className="text-xs uppercase tracking-[0.2em] text-muted-foreground">Plans</p>
+          <h2 className="mt-3 font-display text-4xl italic md:text-5xl">
+            Start free. <span className="text-gradient-aria">Grow with Aria.</span>
+          </h2>
+        </div>
+        <div className="grid gap-5 md:grid-cols-3">
+          {PLAN_LIST.map((p) => (
+            <div
+              key={p.id}
+              className={`relative flex flex-col rounded-2xl border p-7 backdrop-blur ${
+                p.highlight
+                  ? "border-primary/50 bg-card/60 ring-glow"
+                  : "border-border/60 bg-card/40"
+              }`}
+            >
+              {p.highlight && (
+                <span className="absolute right-6 top-6 rounded-full border border-primary/40 px-2.5 py-0.5 text-[11px] text-primary">
+                  Most popular
+                </span>
+              )}
+              <h3 className="text-lg font-medium">{p.name}</h3>
+              <div className="mt-3 flex items-baseline gap-2">
+                <span className="font-display text-4xl">{p.price}</span>
+                <span className="text-xs text-muted-foreground">{p.period}</span>
+              </div>
+              <p className="mt-3 text-sm text-muted-foreground">{p.blurb}</p>
+              <ul className="mt-6 flex-1 space-y-2.5 text-sm text-muted-foreground">
+                {p.features.map((f) => (
+                  <li key={f} className="flex gap-2.5">
+                    <Check className="mt-0.5 h-4 w-4 shrink-0 text-primary" />
+                    <span>{f}</span>
+                  </li>
+                ))}
+              </ul>
+              <Button
+                asChild
+                variant={p.highlight ? "default" : "secondary"}
+                className="mt-7 h-11 rounded-full"
+              >
+                <Link to="/chat">{p.id === "free" ? "Start free" : `Get ${p.name}`}</Link>
+              </Button>
+            </div>
+          ))}
+        </div>
+        <p className="mt-6 text-center text-xs text-muted-foreground">
+          Every new account starts on Free. Verse and Fable are included from Pro; Max adds 20×
+          Pro's usage and early access to new Aria models.
+        </p>
+      </section>
+
       {/* Creator */}
+
       <section id="creator" className="mx-auto max-w-3xl px-6 pb-32 text-center">
         <div className="rounded-3xl border border-border/60 bg-card/40 p-10 backdrop-blur md:p-14">
           <p className="text-xs uppercase tracking-[0.2em] text-muted-foreground">Created by</p>

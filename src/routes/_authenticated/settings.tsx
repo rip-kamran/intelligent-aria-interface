@@ -8,7 +8,18 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { MODEL_LIST, PROVIDERS, type ModelId, type ProviderId } from "@/lib/aria-prompts";
+import {
+  MODEL_LIST,
+  MODELS,
+  PLANS,
+  PLAN_LIST,
+  PROVIDERS,
+  canUseModel,
+  type ModelId,
+  type PlanId,
+  type ProviderId,
+} from "@/lib/aria-prompts";
+
 import {
   getProfile,
   updateProfile,
@@ -36,7 +47,8 @@ function SettingsPage() {
 
   const [displayName, setDisplayName] = useState("");
   const [instructions, setInstructions] = useState("");
-  const [preferredModel, setPreferredModel] = useState<ModelId>("verse");
+  const [preferredModel, setPreferredModel] = useState<ModelId>("prose");
+  const [plan, setPlan] = useState<PlanId>("free");
   const [keys, setKeys] = useState<Array<{ provider: string; masked: string }>>([]);
   const [inputs, setInputs] = useState<Record<string, string>>({});
   const [saving, setSaving] = useState(false);
@@ -48,9 +60,11 @@ function SettingsPage() {
       .then((p) => {
         setDisplayName(p.display_name || "");
         setInstructions(p.custom_instructions || "");
-        setPreferredModel((p.preferred_model as ModelId) || "verse");
+        setPreferredModel((p.preferred_model as ModelId) || "prose");
+        setPlan((((p as { plan?: string }).plan ?? "free") as PlanId));
       })
       .catch(() => {});
+
     refreshKeys();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -106,7 +120,62 @@ function SettingsPage() {
           <h1 className="font-display text-4xl italic">Settings</h1>
         </div>
 
+        {/* Plan */}
+        <section className="mb-10 rounded-2xl border border-border/60 bg-card/50 p-6 backdrop-blur">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div>
+              <h2 className="text-lg font-medium">Your plan</h2>
+              <p className="mt-1 text-sm text-muted-foreground">
+                You're on <span className="text-foreground">Aria {PLANS[plan].name}</span> —{" "}
+                {PLANS[plan].dailyMessages.toLocaleString()} messages per day.
+              </p>
+            </div>
+            <span className="rounded-full border border-primary/40 px-3 py-1 text-xs text-primary">
+              {PLANS[plan].name}
+            </span>
+          </div>
+          <div className="mt-5 grid gap-3 md:grid-cols-3">
+            {PLAN_LIST.map((p) => (
+              <div
+                key={p.id}
+                className={`rounded-xl border p-4 ${
+                  p.id === plan ? "border-primary/50 bg-primary/5" : "border-border/50 bg-background/40"
+                }`}
+              >
+                <div className="flex items-baseline justify-between">
+                  <h3 className="font-medium">{p.name}</h3>
+                  <span className="text-sm">{p.price}</span>
+                </div>
+                <p className="mt-1 text-xs text-muted-foreground">{p.blurb}</p>
+                <ul className="mt-3 space-y-1.5 text-xs text-muted-foreground">
+                  {p.features.map((f) => (
+                    <li key={f} className="flex gap-2">
+                      <span className="text-primary">·</span>
+                      {f}
+                    </li>
+                  ))}
+                </ul>
+                {p.id !== plan && p.id !== "free" && (
+                  <Button
+                    size="sm"
+                    variant={p.highlight ? "default" : "secondary"}
+                    className="mt-4 w-full rounded-lg"
+                    onClick={() =>
+                      toast("Upgrades are opening soon", {
+                        description: `Aria ${p.name} will be available at ${p.price} ${p.period}.`,
+                      })
+                    }
+                  >
+                    Upgrade to {p.name}
+                  </Button>
+                )}
+              </div>
+            ))}
+          </div>
+        </section>
+
         {/* Personalization */}
+
         <section className="mb-10 rounded-2xl border border-border/60 bg-card/50 p-6 backdrop-blur">
           <h2 className="text-lg font-medium">Personalization</h2>
           <p className="mt-1 text-sm text-muted-foreground">
@@ -142,11 +211,16 @@ function SettingsPage() {
                 onChange={(e) => setPreferredModel(e.target.value as ModelId)}
                 className="mt-1 w-full rounded-md border border-border/60 bg-background px-3 py-2 text-sm"
               >
-                {MODEL_LIST.map((m) => (
-                  <option key={m.id} value={m.id}>
-                    Aria {m.label} — {m.tagline}
-                  </option>
-                ))}
+                {MODEL_LIST.map((m) => {
+                  const locked = !canUseModel(plan, m.id);
+                  return (
+                    <option key={m.id} value={m.id} disabled={locked}>
+                      Aria {m.label} — {m.tagline}
+                      {locked ? ` (${MODELS[m.id].tier === "max" ? "Max" : "Pro"})` : ""}
+                    </option>
+                  );
+                })}
+
               </select>
             </div>
             <Button onClick={saveProfile} disabled={saving} className="rounded-lg">

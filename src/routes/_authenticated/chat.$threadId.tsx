@@ -12,7 +12,9 @@ import { AriaLogo } from "@/components/aria-logo";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
-import { MODEL_LIST, type ModelId } from "@/lib/aria-prompts";
+import { MODEL_LIST, MODELS, canUseModel, type ModelId, type PlanId } from "@/lib/aria-prompts";
+import { getProfile } from "@/lib/settings.functions";
+
 import {
   listThreads,
   getThread,
@@ -43,14 +45,23 @@ function ChatThread() {
   const delFn = useServerFn(deleteThreadFn);
   const setModelFn = useServerFn(updateThreadModel);
   const searchFn = useServerFn(searchThreads);
+  const profileFn = useServerFn(getProfile);
 
   const [threads, setThreads] = useState<ThreadRow[]>([]);
   const [initial, setInitial] = useState<UIMessage[] | null>(null);
-  const [threadModel, setThreadModel] = useState<ModelId>("verse");
+  const [threadModel, setThreadModel] = useState<ModelId>("prose");
+  const [plan, setPlan] = useState<PlanId>("free");
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [query, setQuery] = useState("");
 
+  useEffect(() => {
+    profileFn()
+      .then((p) => setPlan(((p as { plan?: string }).plan ?? "free") as PlanId))
+      .catch(() => {});
+  }, [profileFn]);
+
   const refreshThreads = () => listFn().then((r) => setThreads(r as ThreadRow[])).catch(() => {});
+
 
   useEffect(() => {
     refreshThreads();
@@ -90,7 +101,15 @@ function ChatThread() {
   };
 
   const changeModel = async (m: ModelId) => {
+    if (!canUseModel(plan, m)) {
+      toast(
+        `Aria ${MODELS[m].label} is included in the ${MODELS[m].tier === "max" ? "Max" : "Pro"} plan.`,
+        { description: "Upgrade to unlock it." },
+      );
+      return;
+    }
     setThreadModel(m);
+
     try {
       await setModelFn({ data: { threadId, model: m } });
     } catch {
@@ -223,12 +242,24 @@ function ChatThread() {
               onChange={(e) => changeModel(e.target.value as ModelId)}
               className="rounded-md border border-border/60 bg-card/60 px-2 py-1 text-sm focus:outline-none focus:ring-1 focus:ring-primary"
             >
-              {MODEL_LIST.map((m) => (
-                <option key={m.id} value={m.id}>
-                  Aria {m.label}
-                </option>
-              ))}
+              {MODEL_LIST.map((m) => {
+                const locked = !canUseModel(plan, m.id);
+                return (
+                  <option key={m.id} value={m.id} disabled={locked}>
+                    Aria {m.label}
+                    {locked ? (m.tier === "max" ? " · Max" : " · Pro") : ""}
+                  </option>
+                );
+              })}
             </select>
+            {plan === "free" && (
+              <Link
+                to="/settings"
+                className="hidden rounded-full border border-primary/40 px-2.5 py-1 text-[11px] text-primary hover:bg-primary/10 sm:inline-block"
+              >
+                Upgrade
+              </Link>
+            )}
           </div>
           <ExportButton messages={initial ?? []} title={threads.find((t) => t.id === threadId)?.title || "chat"} />
         </header>
