@@ -120,7 +120,62 @@ function SettingsPage() {
           <h1 className="font-display text-4xl italic">Settings</h1>
         </div>
 
+        {/* Plan */}
+        <section className="mb-10 rounded-2xl border border-border/60 bg-card/50 p-6 backdrop-blur">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div>
+              <h2 className="text-lg font-medium">Your plan</h2>
+              <p className="mt-1 text-sm text-muted-foreground">
+                You're on <span className="text-foreground">Aria {PLANS[plan].name}</span> —{" "}
+                {PLANS[plan].dailyMessages.toLocaleString()} messages per day.
+              </p>
+            </div>
+            <span className="rounded-full border border-primary/40 px-3 py-1 text-xs text-primary">
+              {PLANS[plan].name}
+            </span>
+          </div>
+          <div className="mt-5 grid gap-3 md:grid-cols-3">
+            {PLAN_LIST.map((p) => (
+              <div
+                key={p.id}
+                className={`rounded-xl border p-4 ${
+                  p.id === plan ? "border-primary/50 bg-primary/5" : "border-border/50 bg-background/40"
+                }`}
+              >
+                <div className="flex items-baseline justify-between">
+                  <h3 className="font-medium">{p.name}</h3>
+                  <span className="text-sm">{p.price}</span>
+                </div>
+                <p className="mt-1 text-xs text-muted-foreground">{p.blurb}</p>
+                <ul className="mt-3 space-y-1.5 text-xs text-muted-foreground">
+                  {p.features.map((f) => (
+                    <li key={f} className="flex gap-2">
+                      <span className="text-primary">·</span>
+                      {f}
+                    </li>
+                  ))}
+                </ul>
+                {p.id !== plan && p.id !== "free" && (
+                  <Button
+                    size="sm"
+                    variant={p.highlight ? "default" : "secondary"}
+                    className="mt-4 w-full rounded-lg"
+                    onClick={() =>
+                      toast("Upgrades are opening soon", {
+                        description: `Aria ${p.name} will be available at ${p.price} ${p.period}.`,
+                      })
+                    }
+                  >
+                    Upgrade to {p.name}
+                  </Button>
+                )}
+              </div>
+            ))}
+          </div>
+        </section>
+
         {/* Personalization */}
+
         <section className="mb-10 rounded-2xl border border-border/60 bg-card/50 p-6 backdrop-blur">
           <h2 className="text-lg font-medium">Personalization</h2>
           <p className="mt-1 text-sm text-muted-foreground">
