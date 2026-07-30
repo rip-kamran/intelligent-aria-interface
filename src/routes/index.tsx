@@ -1,7 +1,9 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { ArrowRight, Sparkles, Shield, Zap } from "lucide-react";
+import { ArrowRight, Sparkles, Shield, Zap, Check } from "lucide-react";
 import { AriaLogo } from "@/components/aria-logo";
 import { Button } from "@/components/ui/button";
+import { PLAN_LIST } from "@/lib/aria-prompts";
+
 
 export const Route = createFileRoute("/")({
   head: () => ({
