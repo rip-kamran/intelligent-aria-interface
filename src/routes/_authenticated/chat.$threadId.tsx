@@ -12,7 +12,9 @@ import { AriaLogo } from "@/components/aria-logo";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
-import { MODEL_LIST, type ModelId } from "@/lib/aria-prompts";
+import { MODEL_LIST, MODELS, canUseModel, type ModelId, type PlanId } from "@/lib/aria-prompts";
+import { getProfile } from "@/lib/settings.functions";
+
 import {
   listThreads,
   getThread,
