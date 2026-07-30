@@ -45,14 +45,23 @@ function ChatThread() {
   const delFn = useServerFn(deleteThreadFn);
   const setModelFn = useServerFn(updateThreadModel);
   const searchFn = useServerFn(searchThreads);
+  const profileFn = useServerFn(getProfile);
 
   const [threads, setThreads] = useState<ThreadRow[]>([]);
   const [initial, setInitial] = useState<UIMessage[] | null>(null);
-  const [threadModel, setThreadModel] = useState<ModelId>("verse");
+  const [threadModel, setThreadModel] = useState<ModelId>("prose");
+  const [plan, setPlan] = useState<PlanId>("free");
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [query, setQuery] = useState("");
 
+  useEffect(() => {
+    profileFn()
+      .then((p) => setPlan(((p as { plan?: string }).plan ?? "free") as PlanId))
+      .catch(() => {});
+  }, [profileFn]);
+
   const refreshThreads = () => listFn().then((r) => setThreads(r as ThreadRow[])).catch(() => {});
+
 
   useEffect(() => {
     refreshThreads();
