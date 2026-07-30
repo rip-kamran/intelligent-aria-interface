@@ -211,11 +211,16 @@ function SettingsPage() {
                 onChange={(e) => setPreferredModel(e.target.value as ModelId)}
                 className="mt-1 w-full rounded-md border border-border/60 bg-background px-3 py-2 text-sm"
               >
-                {MODEL_LIST.map((m) => (
-                  <option key={m.id} value={m.id}>
-                    Aria {m.label} — {m.tagline}
-                  </option>
-                ))}
+                {MODEL_LIST.map((m) => {
+                  const locked = !canUseModel(plan, m.id);
+                  return (
+                    <option key={m.id} value={m.id} disabled={locked}>
+                      Aria {m.label} — {m.tagline}
+                      {locked ? ` (${MODELS[m.id].tier === "max" ? "Max" : "Pro"})` : ""}
+                    </option>
+                  );
+                })}
+
               </select>
             </div>
             <Button onClick={saveProfile} disabled={saving} className="rounded-lg">
