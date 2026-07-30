@@ -242,12 +242,26 @@ function ChatThread() {
               onChange={(e) => changeModel(e.target.value as ModelId)}
               className="rounded-md border border-border/60 bg-card/60 px-2 py-1 text-sm focus:outline-none focus:ring-1 focus:ring-primary"
             >
-              {MODEL_LIST.map((m) => (
-                <option key={m.id} value={m.id}>
-                  Aria {m.label}
-                </option>
-              ))}
+              {MODEL_LIST.map((m) => {
+                const locked = !canUseModel(plan, m.id);
+                return (
+                  <option key={m.id} value={m.id} disabled={locked}>
+                    Aria {m.label}
+                    {locked ? (m.tier === "max" ? " · Max" : " · Pro") : ""}
+                  </option>
+                );
+              })}
             </select>
+            {plan === "free" && (
+              <Link
+                to="/settings"
+                className="hidden rounded-full border border-primary/40 px-2.5 py-1 text-[11px] text-primary hover:bg-primary/10 sm:inline-block"
+              >
+                Upgrade
+              </Link>
+            )}
+          </div>
+
           </div>
           <ExportButton messages={initial ?? []} title={threads.find((t) => t.id === threadId)?.title || "chat"} />
         </header>
