@@ -1,10 +1,22 @@
 // System prompts for each Aria model, and provider configuration.
 // Fable = flagship. Verse = reasoning/coding. Prose = capable/efficient. Tale = lightweight/fast.
 
-export type ModelId = "fable" | "verse" | "prose" | "tale";
+export type ModelId =
+  | "fable"
+  | "verse"
+  | "prose"
+  | "tale"
+  | "spark"
+  | "muse"
+  | "cipher"
+  | "oracle";
+
+export type PlanId = "free" | "pro" | "max";
 
 // The full system prompt text for each model lives in src/lib/prompts/*.server.ts
 // and is assembled server-side in src/lib/model-prompts.server.ts.
+
+
 
 
 export type ProviderId =
