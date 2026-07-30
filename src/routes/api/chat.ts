@@ -2,14 +2,19 @@ import { createFileRoute } from "@tanstack/react-router";
 import { convertToModelMessages, streamText, type UIMessage } from "ai";
 import { createClient } from "@supabase/supabase-js";
 import type { Database } from "@/integrations/supabase/types";
-import { MODELS, type ModelId } from "@/lib/aria-prompts";
+import {
+  MODELS,
+  DAILY_LIMITS,
+  canUseModel,
+  type ModelId,
+  type PlanId,
+} from "@/lib/aria-prompts";
 import { FULL_MODEL_PROMPTS } from "@/lib/model-prompts.server";
 import { createProviderModel, createLovableFallbackModel } from "@/lib/ai-gateway.server";
 
-// Free built-in Aria (no personal API key) is capped per user, per UTC day.
-const FREE_DAILY_MESSAGE_LIMIT = 30;
-
-async function checkAndCountFreeUsage(userId: string) {
+// Built-in Aria (no personal API key) is capped per user, per UTC day, by plan.
+async function checkAndCountFreeUsage(userId: string, plan: PlanId) {
+  const limit = DAILY_LIMITS[plan];
   const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
   const day = new Date().toISOString().slice(0, 10);
   const { data } = await supabaseAdmin
@@ -19,15 +24,16 @@ async function checkAndCountFreeUsage(userId: string) {
     .eq("day", day)
     .maybeSingle();
   const used = data?.message_count ?? 0;
-  if (used >= FREE_DAILY_MESSAGE_LIMIT) return { allowed: false, used };
+  if (used >= limit) return { allowed: false, used, limit };
   await supabaseAdmin
     .from("usage_daily")
     .upsert(
       { user_id: userId, day, message_count: used + 1 },
       { onConflict: "user_id,day" },
     );
-  return { allowed: true, used: used + 1 };
+  return { allowed: true, used: used + 1, limit };
 }
+
 
 type ChatBody = {
   messages?: UIMessage[];
