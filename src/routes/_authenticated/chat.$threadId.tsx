@@ -101,7 +101,15 @@ function ChatThread() {
   };
 
   const changeModel = async (m: ModelId) => {
+    if (!canUseModel(plan, m)) {
+      toast(
+        `Aria ${MODELS[m].label} is included in the ${MODELS[m].tier === "max" ? "Max" : "Pro"} plan.`,
+        { description: "Upgrade to unlock it." },
+      );
+      return;
+    }
     setThreadModel(m);
+
     try {
       await setModelFn({ data: { threadId, model: m } });
     } catch {
