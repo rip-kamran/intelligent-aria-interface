@@ -1,18 +1,24 @@
 import { createServerFn } from "@tanstack/react-start";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { z } from "zod";
+import { MODEL_IDS, canUseModel, type ModelId, type PlanId } from "@/lib/aria-prompts";
 
 export const getProfile = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
   .handler(async ({ context }) => {
     const { data, error } = await context.supabase
       .from("profiles")
-      .select("display_name, custom_instructions, preferred_model")
+      .select("display_name, custom_instructions, preferred_model, plan")
       .eq("id", context.userId)
       .maybeSingle();
     if (error) throw new Error(error.message);
     return (
-      data ?? { display_name: null, custom_instructions: null, preferred_model: "verse" }
+      data ?? {
+        display_name: null,
+        custom_instructions: null,
+        preferred_model: "prose",
+        plan: "free",
+      }
     );
   });
 
@@ -23,17 +29,29 @@ export const updateProfile = createServerFn({ method: "POST" })
       .object({
         display_name: z.string().max(80).nullable().optional(),
         custom_instructions: z.string().max(4000).nullable().optional(),
-        preferred_model: z.enum(["fable", "verse", "prose", "tale"]).optional(),
+        preferred_model: z.enum(MODEL_IDS).optional(),
       })
       .parse(d),
   )
   .handler(async ({ data, context }) => {
+    if (data.preferred_model) {
+      const { data: prof } = await context.supabase
+        .from("profiles")
+        .select("plan")
+        .eq("id", context.userId)
+        .maybeSingle();
+      const plan = ((prof as { plan?: string } | null)?.plan ?? "free") as PlanId;
+      if (!canUseModel(plan, data.preferred_model as ModelId)) {
+        throw new Error("That model requires an upgraded plan.");
+      }
+    }
     const { error } = await context.supabase
       .from("profiles")
       .upsert({ id: context.userId, ...data });
     if (error) throw new Error(error.message);
     return { ok: true };
   });
+
 
 export const listApiKeys = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
