@@ -58,6 +58,7 @@ export type Database = {
           custom_instructions: string | null
           display_name: string | null
           id: string
+          plan: string
           preferred_model: string
           updated_at: string
         }
@@ -66,6 +67,7 @@ export type Database = {
           custom_instructions?: string | null
           display_name?: string | null
           id: string
+          plan?: string
           preferred_model?: string
           updated_at?: string
         }
@@ -74,6 +76,7 @@ export type Database = {
           custom_instructions?: string | null
           display_name?: string | null
           id?: string
+          plan?: string
           preferred_model?: string
           updated_at?: string
         }
