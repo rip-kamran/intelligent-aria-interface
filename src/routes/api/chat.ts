@@ -173,14 +173,15 @@ export const Route = createFileRoute("/api/chat")({
           }
         }
 
-        // No user key worked — fallback to built-in Aria (free tier, rate limited).
-        const usage = await checkAndCountFreeUsage(auth.userId);
+        // No user key worked — fallback to built-in Aria (rate limited by plan).
+        const usage = await checkAndCountFreeUsage(auth.userId, plan);
         if (!usage.allowed) {
           return new Response(
-            `Daily limit reached — you've used all ${FREE_DAILY_MESSAGE_LIMIT} free Aria messages for today. Add your own API key in Settings for unlimited use, or come back tomorrow.`,
+            `Daily limit reached — you've used all ${usage.limit} Aria messages included in your ${plan === "free" ? "Free" : plan === "pro" ? "Pro" : "Max"} plan today. Upgrade your plan or add your own API key in Settings for unlimited use.`,
             { status: 429 },
           );
         }
+
 
         try {
           const model = createLovableFallbackModel();
