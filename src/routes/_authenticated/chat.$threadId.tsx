@@ -4,7 +4,30 @@ import { useEffect, useRef, useState } from "react";
 import { useChat } from "@ai-sdk/react";
 import { DefaultChatTransport, type UIMessage } from "ai";
 import ReactMarkdown from "react-markdown";
-import { Plus, Send, LogOut, Trash2, Menu, X, Search, Download, Settings } from "lucide-react";
+import {
+  Plus,
+  Send,
+  LogOut,
+  Trash2,
+  Menu,
+  X,
+  Search,
+  Download,
+  Settings,
+  MoreHorizontal,
+  Pin,
+  PinOff,
+  Archive,
+  ArchiveRestore,
+} from "lucide-react";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { ModelSelector } from "@/components/model-selector";
+import { UsageMeter, useUsage } from "@/components/usage-meter";
 import { toast, Toaster } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/use-auth";
@@ -12,7 +35,7 @@ import { AriaLogo } from "@/components/aria-logo";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
-import { MODEL_LIST, MODELS, canUseModel, type ModelId, type PlanId } from "@/lib/aria-prompts";
+import { MODELS, canUseModel, effectivePlan, type ModelId, type PlanId } from "@/lib/aria-prompts";
 import { getProfile } from "@/lib/settings.functions";
 
 import {
@@ -21,6 +44,7 @@ import {
   deleteThreadFn,
   updateThreadModel,
   searchThreads,
+  setThreadFlags,
 } from "@/lib/threads.functions";
 
 export const Route = createFileRoute("/_authenticated/chat/$threadId")({
@@ -33,7 +57,14 @@ export const Route = createFileRoute("/_authenticated/chat/$threadId")({
   component: ChatThread,
 });
 
-type ThreadRow = { id: string; title: string; model: string; updated_at: string };
+type ThreadRow = {
+  id: string;
+  title: string;
+  model: string;
+  updated_at: string;
+  pinned?: boolean;
+  archived?: boolean;
+};
 
 function ChatThread() {
   const { threadId } = useParams({ from: "/_authenticated/chat/$threadId" });
@@ -45,6 +76,7 @@ function ChatThread() {
   const delFn = useServerFn(deleteThreadFn);
   const setModelFn = useServerFn(updateThreadModel);
   const searchFn = useServerFn(searchThreads);
+  const flagsFn = useServerFn(setThreadFlags);
   const profileFn = useServerFn(getProfile);
 
   const [threads, setThreads] = useState<ThreadRow[]>([]);
@@ -53,10 +85,12 @@ function ChatThread() {
   const [plan, setPlan] = useState<PlanId>("free");
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [query, setQuery] = useState("");
+  const [showArchived, setShowArchived] = useState(false);
+  const { usage, refresh: refreshUsage } = useUsage();
 
   useEffect(() => {
     profileFn()
-      .then((p) => setPlan(((p as { plan?: string }).plan ?? "free") as PlanId))
+      .then((p) => setPlan(effectivePlan((((p as { plan?: string }).plan ?? "free") as PlanId))))
       .catch(() => {});
   }, [profileFn]);
 
@@ -98,6 +132,25 @@ function ChatThread() {
     await delFn({ data: { threadId: id } });
     await refreshThreads();
     if (id === threadId) newChat();
+  };
+
+  const toggleFlag = async (id: string, patch: { pinned?: boolean; archived?: boolean }) => {
+    setThreads((prev) => prev.map((t) => (t.id === id ? { ...t, ...patch } : t)));
+    try {
+      await flagsFn({ data: { threadId: id, ...patch } });
+      toast(
+        patch.pinned !== undefined
+          ? patch.pinned
+            ? "Chat pinned"
+            : "Chat unpinned"
+          : patch.archived
+            ? "Chat archived"
+            : "Chat restored",
+      );
+    } catch {
+      toast("Couldn't update that chat.");
+    }
+    refreshThreads();
   };
 
   const changeModel = async (m: ModelId) => {
@@ -169,38 +222,55 @@ function ChatThread() {
         </div>
 
         <div className="mt-3 flex-1 overflow-y-auto px-2 pb-2">
-          <p className="px-2 py-1.5 text-xs text-muted-foreground">Recent</p>
-          <ul className="space-y-0.5">
-            {threads.map((t) => (
-              <li key={t.id} className="group relative">
-                <button
-                  onClick={() => {
-                    navigate({ to: "/chat/$threadId", params: { threadId: t.id } });
-                    setSidebarOpen(false);
-                  }}
-                  className={cn(
-                    "flex w-full items-center rounded-lg px-3 py-2 text-left text-sm text-foreground/80 transition-colors hover:bg-accent",
-                    t.id === threadId && "bg-accent text-foreground",
-                  )}
-                >
-                  <span className="truncate pr-6">{t.title || "New chat"}</span>
-                </button>
-                <button
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    handleDelete(t.id);
-                  }}
-                  className="absolute right-1.5 top-1/2 -translate-y-1/2 rounded p-1.5 text-muted-foreground opacity-0 transition-opacity hover:bg-background hover:text-destructive group-hover:opacity-100"
-                  aria-label="Delete chat"
-                >
-                  <Trash2 className="h-3.5 w-3.5" />
-                </button>
-              </li>
-            ))}
-            {threads.length === 0 && (
-              <li className="px-3 py-2 text-xs text-muted-foreground">No conversations yet.</li>
-            )}
-          </ul>
+          {(() => {
+            const pinned = threads.filter((t) => t.pinned && !t.archived);
+            const recent = threads.filter((t) => !t.pinned && !t.archived);
+            const archived = threads.filter((t) => t.archived);
+            const row = (t: ThreadRow) => (
+              <ThreadItem
+                key={t.id}
+                thread={t}
+                active={t.id === threadId}
+                onOpen={() => {
+                  navigate({ to: "/chat/$threadId", params: { threadId: t.id } });
+                  setSidebarOpen(false);
+                }}
+                onPin={() => toggleFlag(t.id, { pinned: !t.pinned })}
+                onArchive={() => toggleFlag(t.id, { archived: !t.archived })}
+                onDelete={() => handleDelete(t.id)}
+              />
+            );
+            return (
+              <>
+                {pinned.length > 0 && (
+                  <>
+                    <p className="px-2 py-1.5 text-xs text-muted-foreground">Pinned</p>
+                    <ul className="space-y-0.5">{pinned.map(row)}</ul>
+                  </>
+                )}
+                <p className="px-2 py-1.5 text-xs text-muted-foreground">Recent</p>
+                <ul className="space-y-0.5">{recent.map(row)}</ul>
+                {recent.length === 0 && pinned.length === 0 && (
+                  <p className="px-3 py-2 text-xs text-muted-foreground">No conversations yet.</p>
+                )}
+                {archived.length > 0 && (
+                  <>
+                    <button
+                      onClick={() => setShowArchived((v) => !v)}
+                      className="mt-2 flex w-full items-center gap-1.5 px-2 py-1.5 text-xs text-muted-foreground hover:text-foreground"
+                    >
+                      <Archive className="h-3 w-3" /> Archived ({archived.length})
+                    </button>
+                    {showArchived && <ul className="space-y-0.5">{archived.map(row)}</ul>}
+                  </>
+                )}
+              </>
+            );
+          })()}
+        </div>
+
+        <div className="px-3 pb-2">
+          <UsageMeter usage={usage} />
         </div>
 
         <div className="space-y-1 border-t border-border/60 p-3">
@@ -237,21 +307,7 @@ function ChatThread() {
           </button>
           <div className="flex items-center gap-2">
             <AriaLogo className="h-5 w-5" />
-            <select
-              value={threadModel}
-              onChange={(e) => changeModel(e.target.value as ModelId)}
-              className="rounded-md border border-border/60 bg-card/60 px-2 py-1 text-sm focus:outline-none focus:ring-1 focus:ring-primary"
-            >
-              {MODEL_LIST.map((m) => {
-                const locked = !canUseModel(plan, m.id);
-                return (
-                  <option key={m.id} value={m.id} disabled={locked}>
-                    Aria {m.label}
-                    {locked ? (m.tier === "max" ? " · Max" : " · Pro") : ""}
-                  </option>
-                );
-              })}
-            </select>
+            <ModelSelector value={threadModel} plan={plan} onChange={changeModel} />
             {plan === "free" && (
               <Link
                 to="/settings"
@@ -273,7 +329,11 @@ function ChatThread() {
             threadId={threadId}
             model={threadModel}
             initialMessages={initial}
-            onFirstMessage={refreshThreads}
+            onFirstMessage={() => {
+              refreshThreads();
+              refreshUsage();
+            }}
+            onComplete={refreshUsage}
           />
         )}
       </main>
@@ -321,11 +381,13 @@ function ChatConversation({
   model,
   initialMessages,
   onFirstMessage,
+  onComplete,
 }: {
   threadId: string;
   model: ModelId;
   initialMessages: UIMessage[];
   onFirstMessage: () => void;
+  onComplete: () => void;
 }) {
   const [input, setInput] = useState("");
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -335,6 +397,7 @@ function ChatConversation({
   const { messages, sendMessage, status, error } = useChat({
     id: threadId,
     messages: initialMessages,
+    onFinish: () => onComplete(),
     transport: new DefaultChatTransport({
       api: "/api/chat",
       body: { threadId, model },
@@ -486,5 +549,76 @@ function Dot({ delay }: { delay: number }) {
       className="inline-block h-1.5 w-1.5 animate-bounce rounded-full bg-muted-foreground"
       style={{ animationDelay: `${delay}ms` }}
     />
+  );
+}
+
+function ThreadItem({
+  thread,
+  active,
+  onOpen,
+  onPin,
+  onArchive,
+  onDelete,
+}: {
+  thread: ThreadRow;
+  active: boolean;
+  onOpen: () => void;
+  onPin: () => void;
+  onArchive: () => void;
+  onDelete: () => void;
+}) {
+  return (
+    <li className="group relative">
+      <button
+        onClick={onOpen}
+        className={cn(
+          "flex w-full items-center rounded-lg px-3 py-2 text-left text-sm text-foreground/80 transition-colors hover:bg-accent",
+          active && "bg-accent text-foreground",
+        )}
+      >
+        {thread.pinned && !thread.archived && (
+          <Pin className="mr-1.5 h-3 w-3 shrink-0 text-primary" />
+        )}
+        <span className="truncate pr-6">{thread.title || "New chat"}</span>
+      </button>
+      <DropdownMenu>
+        <DropdownMenuTrigger
+          className={cn(
+            "absolute right-1.5 top-1/2 -translate-y-1/2 rounded p-1.5 text-muted-foreground opacity-0 transition-opacity hover:bg-background hover:text-foreground focus:opacity-100 group-hover:opacity-100 data-[state=open]:opacity-100",
+            active && "opacity-100",
+          )}
+          aria-label="Chat options"
+        >
+          <MoreHorizontal className="h-3.5 w-3.5" />
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="end" className="w-44">
+          <DropdownMenuItem onSelect={onPin}>
+            {thread.pinned ? (
+              <>
+                <PinOff className="mr-2 h-4 w-4" /> Unpin chat
+              </>
+            ) : (
+              <>
+                <Pin className="mr-2 h-4 w-4" /> Pin chat
+              </>
+            )}
+          </DropdownMenuItem>
+          <DropdownMenuItem onSelect={onArchive}>
+            {thread.archived ? (
+              <>
+                <ArchiveRestore className="mr-2 h-4 w-4" /> Unarchive
+              </>
+            ) : (
+              <>
+                <Archive className="mr-2 h-4 w-4" /> Archive
+              </>
+            )}
+          </DropdownMenuItem>
+          <DropdownMenuItem onSelect={onDelete} className="text-destructive focus:text-destructive">
+            <Trash2 className="mr-2 h-4 w-4" /> Delete chat
+          </DropdownMenuItem>
+        </DropdownMenuContent>
+      </DropdownMenu>
+    </li>
   );
 }

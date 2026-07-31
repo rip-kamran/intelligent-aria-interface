@@ -15,6 +15,7 @@ import {
   PLAN_LIST,
   PROVIDERS,
   canUseModel,
+  effectivePlan,
   type ModelId,
   type PlanId,
   type ProviderId,
@@ -27,6 +28,7 @@ import {
   saveApiKey,
   deleteApiKey,
 } from "@/lib/settings.functions";
+import { UsageMeter, useUsage } from "@/components/usage-meter";
 
 export const Route = createFileRoute("/_authenticated/settings")({
   head: () => ({
@@ -49,6 +51,7 @@ function SettingsPage() {
   const [instructions, setInstructions] = useState("");
   const [preferredModel, setPreferredModel] = useState<ModelId>("prose");
   const [plan, setPlan] = useState<PlanId>("free");
+  const { usage } = useUsage();
   const [keys, setKeys] = useState<Array<{ provider: string; masked: string }>>([]);
   const [inputs, setInputs] = useState<Record<string, string>>({});
   const [saving, setSaving] = useState(false);
@@ -61,7 +64,7 @@ function SettingsPage() {
         setDisplayName(p.display_name || "");
         setInstructions(p.custom_instructions || "");
         setPreferredModel((p.preferred_model as ModelId) || "prose");
-        setPlan((((p as { plan?: string }).plan ?? "free") as PlanId));
+        setPlan(effectivePlan((((p as { plan?: string }).plan ?? "free") as PlanId)));
       })
       .catch(() => {});
 
@@ -120,8 +123,21 @@ function SettingsPage() {
           <h1 className="font-display text-4xl italic">Settings</h1>
         </div>
 
+        {/* Usage */}
+        <section className="mb-10 rounded-2xl border border-border/60 bg-card/50 p-6 backdrop-blur">
+          <h2 className="text-lg font-medium">Usage</h2>
+          <p className="mt-1 text-sm text-muted-foreground">
+            Your daily allowance resets at midnight UTC.
+          </p>
+          <UsageMeter usage={usage} className="mt-4" showUpgrade={false} />
+        </section>
+
         {/* Plan */}
         <section className="mb-10 rounded-2xl border border-border/60 bg-card/50 p-6 backdrop-blur">
+          <span className="mb-4 inline-flex items-center gap-2 rounded-full border border-primary/40 bg-primary/10 px-3 py-1 text-[10px] uppercase tracking-[0.16em] text-primary">
+            <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-primary" />
+            Future upcoming update
+          </span>
           <div className="flex flex-wrap items-center justify-between gap-3">
             <div>
               <h2 className="text-lg font-medium">Your plan</h2>
@@ -166,7 +182,7 @@ function SettingsPage() {
                       })
                     }
                   >
-                    Upgrade to {p.name}
+                    {p.name} — coming soon
                   </Button>
                 )}
               </div>

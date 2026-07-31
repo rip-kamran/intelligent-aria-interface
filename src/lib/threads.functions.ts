@@ -10,7 +10,8 @@ export const listThreads = createServerFn({ method: "GET" })
   .handler(async ({ context }) => {
     const { data, error } = await context.supabase
       .from("threads")
-      .select("id, title, model, updated_at")
+      .select("id, title, model, updated_at, pinned, archived")
+      .order("pinned", { ascending: false })
       .order("updated_at", { ascending: false });
     if (error) throw new Error(error.message);
     return data ?? [];
@@ -99,4 +100,42 @@ export const searchThreads = createServerFn({ method: "POST" })
       }
     }
     return results;
+  });
+
+export const setThreadFlags = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: unknown) =>
+    z
+      .object({
+        threadId: z.string().uuid(),
+        pinned: z.boolean().optional(),
+        archived: z.boolean().optional(),
+      })
+      .parse(d),
+  )
+  .handler(async ({ data, context }) => {
+    const patch: { pinned?: boolean; archived?: boolean } = {};
+    if (typeof data.pinned === "boolean") patch.pinned = data.pinned;
+    if (typeof data.archived === "boolean") patch.archived = data.archived;
+    if (Object.keys(patch).length === 0) return { ok: true };
+    const { error } = await context.supabase
+      .from("threads")
+      .update(patch)
+      .eq("id", data.threadId);
+    if (error) throw new Error(error.message);
+    return { ok: true };
+  });
+
+export const renameThread = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: unknown) =>
+    z.object({ threadId: z.string().uuid(), title: z.string().min(1).max(120) }).parse(d),
+  )
+  .handler(async ({ data, context }) => {
+    const { error } = await context.supabase
+      .from("threads")
+      .update({ title: data.title.trim() })
+      .eq("id", data.threadId);
+    if (error) throw new Error(error.message);
+    return { ok: true };
   });
