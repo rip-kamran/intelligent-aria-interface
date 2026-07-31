@@ -84,25 +84,31 @@ export type Database = {
       }
       threads: {
         Row: {
+          archived: boolean
           created_at: string
           id: string
           model: string
+          pinned: boolean
           title: string
           updated_at: string
           user_id: string
         }
         Insert: {
+          archived?: boolean
           created_at?: string
           id?: string
           model?: string
+          pinned?: boolean
           title?: string
           updated_at?: string
           user_id: string
         }
         Update: {
+          archived?: boolean
           created_at?: string
           id?: string
           model?: string
+          pinned?: boolean
           title?: string
           updated_at?: string
           user_id?: string
