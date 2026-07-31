@@ -6,6 +6,7 @@ import {
   MODELS,
   DAILY_LIMITS,
   canUseModel,
+  effectivePlan,
   type ModelId,
   type PlanId,
 } from "@/lib/aria-prompts";
@@ -89,7 +90,9 @@ export const Route = createFileRoute("/api/chat")({
         const keys: Record<string, string> = {};
         for (const r of keyRows ?? []) keys[r.provider as string] = r.api_key as string;
 
-        const plan = (((profile as { plan?: string } | null)?.plan) ?? "free") as PlanId;
+        const storedPlan = (((profile as { plan?: string } | null)?.plan) ?? "free") as PlanId;
+        // Payments are not live yet — everyone is enforced on the Free tier.
+        const plan = effectivePlan(storedPlan);
         const requested: ModelId =
           body.model || (profile?.preferred_model as ModelId) || "prose";
         const modelId: ModelId = MODELS[requested] ? requested : "prose";
