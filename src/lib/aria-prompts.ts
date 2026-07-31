@@ -277,3 +277,15 @@ export const PLANS: Record<PlanId, PlanConfig> = {
 
 export const PLAN_LIST: PlanConfig[] = [PLANS.free, PLANS.pro, PLANS.max];
 
+
+/**
+ * Payments are not live yet, so plans are a preview: everybody uses Aria on
+ * the Free tier (free models + free daily limit) regardless of the plan stored
+ * on their profile. Flip this to true once a payment provider is connected.
+ */
+export const PAYMENTS_ENABLED = false;
+
+/** The plan that is actually enforced right now. */
+export function effectivePlan(plan: PlanId): PlanId {
+  return PAYMENTS_ENABLED ? plan : "free";
+}
