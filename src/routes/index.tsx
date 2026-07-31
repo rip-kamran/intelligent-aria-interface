@@ -122,10 +122,18 @@ function Landing() {
       {/* Pricing */}
       <section id="pricing" className="mx-auto max-w-6xl px-6 pb-28">
         <div className="mb-12 text-center">
-          <p className="text-xs uppercase tracking-[0.2em] text-muted-foreground">Plans</p>
+          <span className="inline-flex items-center gap-2 rounded-full border border-primary/40 bg-primary/10 px-3.5 py-1 text-[11px] uppercase tracking-[0.16em] text-primary">
+            <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-primary" />
+            Future upcoming update
+          </span>
+          <p className="mt-4 text-xs uppercase tracking-[0.2em] text-muted-foreground">Plans</p>
           <h2 className="mt-3 font-display text-4xl italic md:text-5xl">
             Start free. <span className="text-gradient-aria">Grow with Aria.</span>
           </h2>
+          <p className="mx-auto mt-4 max-w-xl text-sm text-muted-foreground">
+            Paid plans aren't live yet — everyone is on Free while billing is being built. These
+            are a preview of what's coming.
+          </p>
         </div>
         <div className="grid gap-5 md:grid-cols-3">
           {PLAN_LIST.map((p) => (
