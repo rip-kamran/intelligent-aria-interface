@@ -114,7 +114,7 @@ export const setThreadFlags = createServerFn({ method: "POST" })
       .parse(d),
   )
   .handler(async ({ data, context }) => {
-    const patch: Record<string, boolean> = {};
+    const patch: { pinned?: boolean; archived?: boolean } = {};
     if (typeof data.pinned === "boolean") patch.pinned = data.pinned;
     if (typeof data.archived === "boolean") patch.archived = data.archived;
     if (Object.keys(patch).length === 0) return { ok: true };
