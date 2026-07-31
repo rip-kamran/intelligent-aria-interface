@@ -145,11 +145,9 @@ function Landing() {
                   : "border-border/60 bg-card/40"
               }`}
             >
-              {p.highlight && (
-                <span className="absolute right-6 top-6 rounded-full border border-primary/40 px-2.5 py-0.5 text-[11px] text-primary">
-                  Most popular
-                </span>
-              )}
+              <span className="absolute right-6 top-6 rounded-full border border-border/70 px-2.5 py-0.5 text-[10px] uppercase tracking-wide text-muted-foreground">
+                {p.id === "free" ? "Live now" : "Coming soon"}
+              </span>
               <h3 className="text-lg font-medium">{p.name}</h3>
               <div className="mt-3 flex items-baseline gap-2">
                 <span className="font-display text-4xl">{p.price}</span>
@@ -164,19 +162,25 @@ function Landing() {
                   </li>
                 ))}
               </ul>
-              <Button
-                asChild
-                variant={p.highlight ? "default" : "secondary"}
-                className="mt-7 h-11 rounded-full"
-              >
-                <Link to="/chat">{p.id === "free" ? "Start free" : `Get ${p.name}`}</Link>
-              </Button>
+              {p.id === "free" ? (
+                <Button asChild className="mt-7 h-11 rounded-full">
+                  <Link to="/chat">Start free</Link>
+                </Button>
+              ) : (
+                <Button
+                  disabled
+                  variant="secondary"
+                  className="mt-7 h-11 rounded-full opacity-70"
+                >
+                  {p.name} — coming soon
+                </Button>
+              )}
             </div>
           ))}
         </div>
         <p className="mt-6 text-center text-xs text-muted-foreground">
-          Every new account starts on Free. Verse and Fable are included from Pro; Max adds 20×
-          Pro's usage and early access to new Aria models.
+          Every account is on Free today, with {PLANS.free.dailyMessages} messages a day. Pro and
+          Max — and the models they unlock — arrive once billing goes live.
         </p>
       </section>
 
