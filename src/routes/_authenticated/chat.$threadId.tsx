@@ -35,7 +35,7 @@ import { AriaLogo } from "@/components/aria-logo";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
-import { MODELS, canUseModel, type ModelId, type PlanId } from "@/lib/aria-prompts";
+import { MODELS, canUseModel, effectivePlan, type ModelId, type PlanId } from "@/lib/aria-prompts";
 import { getProfile } from "@/lib/settings.functions";
 
 import {
@@ -90,7 +90,7 @@ function ChatThread() {
 
   useEffect(() => {
     profileFn()
-      .then((p) => setPlan(((p as { plan?: string }).plan ?? "free") as PlanId))
+      .then((p) => setPlan(effectivePlan((((p as { plan?: string }).plan ?? "free") as PlanId))))
       .catch(() => {});
   }, [profileFn]);
 

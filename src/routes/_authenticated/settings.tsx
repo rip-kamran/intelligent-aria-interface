@@ -15,6 +15,7 @@ import {
   PLAN_LIST,
   PROVIDERS,
   canUseModel,
+  effectivePlan,
   type ModelId,
   type PlanId,
   type ProviderId,
@@ -63,7 +64,7 @@ function SettingsPage() {
         setDisplayName(p.display_name || "");
         setInstructions(p.custom_instructions || "");
         setPreferredModel((p.preferred_model as ModelId) || "prose");
-        setPlan((((p as { plan?: string }).plan ?? "free") as PlanId));
+        setPlan(effectivePlan((((p as { plan?: string }).plan ?? "free") as PlanId)));
       })
       .catch(() => {});
 
