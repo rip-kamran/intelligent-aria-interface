@@ -143,6 +143,8 @@ export const Route = createFileRoute("/api/chat")({
 
         // Build system prompt with custom instructions
         let system = FULL_MODEL_PROMPTS[modelId];
+        system += `\n\n<tools>\nYou can browse the live web with DuckDuckGo.\n- Call web_search whenever the answer depends on current, recent, local or fast-changing information (news, prices, sports, weather, releases, "today", "latest"), or when you are unsure of a fact.\n- Call open_page on a result URL when the snippet is not enough.\n- Never invent sources. Cite the pages you used inline as markdown links.\n- For timeless knowledge, answer directly without searching.\n</tools>`;
+
         if (profile?.display_name) {
           system += `\n\nThe user's name is ${profile.display_name}.`;
         }
