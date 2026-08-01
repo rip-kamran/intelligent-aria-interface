@@ -218,8 +218,12 @@ export const Route = createFileRoute("/api/chat")({
         // No user key worked — fallback to built-in Aria (rate limited by plan).
         const usage = await checkAndCountFreeUsage(auth.userId, plan);
         if (!usage.allowed) {
+          const hoursLeft = Math.max(
+            1,
+            Math.ceil((new Date(usage.resetAt).getTime() - Date.now()) / 3_600_000),
+          );
           return new Response(
-            `Daily limit reached — you've used all ${usage.limit} Aria messages included in your ${plan === "free" ? "Free" : plan === "pro" ? "Pro" : "Max"} plan today. Upgrade your plan or add your own API key in Settings for unlimited use.`,
+            `You've used your full Aria allowance (${usage.limit} messages). It resets in about ${hoursLeft}h. Add your own API key in Settings for unlimited use.`,
             { status: 429 },
           );
         }
@@ -230,7 +234,10 @@ export const Route = createFileRoute("/api/chat")({
           const result = streamText({
             model,
             system,
+            tools: ariaTools,
+            stopWhen: stepCountIs(5),
             messages: convertToModelMessages(body.messages),
+
             onFinish: async ({ text }) => {
               if (!body.threadId) return;
               await auth.client.from("messages").insert({
