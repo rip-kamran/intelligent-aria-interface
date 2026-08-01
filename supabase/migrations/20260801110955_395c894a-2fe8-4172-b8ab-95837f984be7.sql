@@ -1,0 +1,1 @@
+ALTER TABLE public.usage_daily ADD COLUMN IF NOT EXISTS reset_at timestamptz NOT NULL DEFAULT (now() + interval '12 hours');

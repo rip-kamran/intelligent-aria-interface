@@ -225,6 +225,14 @@ export const DAILY_LIMITS: Record<PlanId, number> = {
   max: MAX_DAILY_LIMIT,
 };
 
+/** Usage allowance resets this many hours after the window started. */
+export const USAGE_WINDOW_HOURS = 12;
+/** Sentinel key for the single rolling-window usage row per user. */
+export const USAGE_ROW_KEY = "1970-01-01";
+/** Warn the user once they cross this fraction of their allowance. */
+export const USAGE_WARN_AT = 0.9;
+
+
 export const PLANS: Record<PlanId, PlanConfig> = {
   free: {
     id: "free",

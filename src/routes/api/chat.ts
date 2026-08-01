@@ -1,5 +1,12 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { convertToModelMessages, streamText, type UIMessage } from "ai";
+import {
+  convertToModelMessages,
+  streamText,
+  stepCountIs,
+  tool,
+  type UIMessage,
+} from "ai";
+import { z } from "zod";
 import { createClient } from "@supabase/supabase-js";
 import type { Database } from "@/integrations/supabase/types";
 import {
@@ -7,33 +14,62 @@ import {
   DAILY_LIMITS,
   canUseModel,
   effectivePlan,
+  USAGE_WINDOW_HOURS,
+  USAGE_ROW_KEY,
   type ModelId,
   type PlanId,
 } from "@/lib/aria-prompts";
 import { FULL_MODEL_PROMPTS } from "@/lib/model-prompts.server";
 import { createProviderModel, createLovableFallbackModel } from "@/lib/ai-gateway.server";
+import { duckDuckGoSearch, fetchPageText } from "@/lib/search.server";
 
-// Built-in Aria (no personal API key) is capped per user, per UTC day, by plan.
+const ariaTools = {
+  web_search: tool({
+    description:
+      "Search the live web with DuckDuckGo. Use for real-time, recent or factual questions (news, prices, releases, anything after your training cutoff). Returns titles, URLs and snippets.",
+    inputSchema: z.object({
+      query: z.string().describe("The search query"),
+      maxResults: z.number().min(1).max(10).optional(),
+    }),
+    execute: async ({ query, maxResults }) => {
+      const results = await duckDuckGoSearch(query, maxResults ?? 6);
+      if (results.length === 0) return { query, results: [], note: "No results found." };
+      return { query, results };
+    },
+  }),
+  open_page: tool({
+    description:
+      "Open a URL returned by web_search and read its text content, when a snippet is not enough.",
+    inputSchema: z.object({ url: z.string().describe("Absolute http(s) URL") }),
+    execute: async ({ url }) => ({ url, text: await fetchPageText(url) }),
+  }),
+};
+
+// Built-in Aria (no personal API key) is capped per rolling 12-hour window.
 async function checkAndCountFreeUsage(userId: string, plan: PlanId) {
   const limit = DAILY_LIMITS[plan];
   const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-  const day = new Date().toISOString().slice(0, 10);
+  const now = Date.now();
+  const nextReset = new Date(now + USAGE_WINDOW_HOURS * 3600_000).toISOString();
   const { data } = await supabaseAdmin
     .from("usage_daily")
-    .select("message_count")
+    .select("message_count, reset_at")
     .eq("user_id", userId)
-    .eq("day", day)
+    .eq("day", USAGE_ROW_KEY)
     .maybeSingle();
-  const used = data?.message_count ?? 0;
-  if (used >= limit) return { allowed: false, used, limit };
-  await supabaseAdmin
-    .from("usage_daily")
-    .upsert(
-      { user_id: userId, day, message_count: used + 1 },
-      { onConflict: "user_id,day" },
-    );
-  return { allowed: true, used: used + 1, limit };
+
+  const expired = !data || new Date(data.reset_at as string).getTime() <= now;
+  const used = expired ? 0 : (data?.message_count ?? 0);
+  const resetAt = expired ? nextReset : (data!.reset_at as string);
+
+  if (used >= limit) return { allowed: false, used, limit, resetAt };
+  await supabaseAdmin.from("usage_daily").upsert(
+    { user_id: userId, day: USAGE_ROW_KEY, message_count: used + 1, reset_at: resetAt },
+    { onConflict: "user_id,day" },
+  );
+  return { allowed: true, used: used + 1, limit, resetAt };
 }
+
 
 
 type ChatBody = {
@@ -107,6 +143,8 @@ export const Route = createFileRoute("/api/chat")({
 
         // Build system prompt with custom instructions
         let system = FULL_MODEL_PROMPTS[modelId];
+        system += `\n\n<tools>\nYou can browse the live web with DuckDuckGo.\n- Call web_search whenever the answer depends on current, recent, local or fast-changing information (news, prices, sports, weather, releases, "today", "latest"), or when you are unsure of a fact.\n- Call open_page on a result URL when the snippet is not enough.\n- Never invent sources. Cite the pages you used inline as markdown links.\n- For timeless knowledge, answer directly without searching.\n</tools>`;
+
         if (profile?.display_name) {
           system += `\n\nThe user's name is ${profile.display_name}.`;
         }
@@ -154,7 +192,10 @@ export const Route = createFileRoute("/api/chat")({
             const result = streamText({
               model,
               system,
+              tools: ariaTools,
+              stopWhen: stepCountIs(5),
               messages: convertToModelMessages(body.messages),
+
               onFinish: async ({ text }) => {
                 if (!body.threadId) return;
                 await auth.client.from("messages").insert({
@@ -179,8 +220,12 @@ export const Route = createFileRoute("/api/chat")({
         // No user key worked — fallback to built-in Aria (rate limited by plan).
         const usage = await checkAndCountFreeUsage(auth.userId, plan);
         if (!usage.allowed) {
+          const hoursLeft = Math.max(
+            1,
+            Math.ceil((new Date(usage.resetAt).getTime() - Date.now()) / 3_600_000),
+          );
           return new Response(
-            `Daily limit reached — you've used all ${usage.limit} Aria messages included in your ${plan === "free" ? "Free" : plan === "pro" ? "Pro" : "Max"} plan today. Upgrade your plan or add your own API key in Settings for unlimited use.`,
+            `You've used your full Aria allowance (${usage.limit} messages). It resets in about ${hoursLeft}h. Add your own API key in Settings for unlimited use.`,
             { status: 429 },
           );
         }
@@ -191,7 +236,10 @@ export const Route = createFileRoute("/api/chat")({
           const result = streamText({
             model,
             system,
+            tools: ariaTools,
+            stopWhen: stepCountIs(5),
             messages: convertToModelMessages(body.messages),
+
             onFinish: async ({ text }) => {
               if (!body.threadId) return;
               await auth.client.from("messages").insert({

@@ -19,6 +19,8 @@ import {
   PinOff,
   Archive,
   ArchiveRestore,
+  Globe,
+
 } from "lucide-react";
 import {
   DropdownMenu,
@@ -27,7 +29,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { ModelSelector } from "@/components/model-selector";
-import { UsageMeter, useUsage } from "@/components/usage-meter";
+import { UsageMeter, UsageWarning, useUsage } from "@/components/usage-meter";
 import { toast, Toaster } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/use-auth";
@@ -320,6 +322,9 @@ function ChatThread() {
           <ExportButton messages={initial ?? []} title={threads.find((t) => t.id === threadId)?.title || "chat"} />
         </header>
 
+        <UsageWarning usage={usage} className="mx-4 mt-3 md:mx-6" />
+
+
         {initial === null ? (
           <div className="flex flex-1 items-center justify-center">
             <AriaLogo className="h-8 w-8 animate-pulse" />
@@ -533,15 +538,46 @@ function MessageBubble({ message }: { message: UIMessage }) {
       </div>
     );
   }
+  const searches = (message.parts as unknown as Array<{
+    type: string;
+    state?: string;
+    input?: { query?: string; url?: string };
+  }>)
+    .filter((p) => p.type === "tool-web_search" || p.type === "tool-open_page")
+    .map((p) => ({
+      label:
+        p.type === "tool-web_search"
+          ? `Searched the web${p.input?.query ? ` · "${p.input.query}"` : ""}`
+          : `Read ${p.input?.url ?? "a page"}`,
+      done: p.state === "output-available" || p.state === "output-error",
+    }));
+
+
   return (
     <div className="flex gap-3">
       <AriaLogo className="mt-1 h-6 w-6 shrink-0" />
-      <div className="prose prose-invert prose-sm min-w-0 max-w-none flex-1 text-[15px] leading-relaxed [&_code]:rounded [&_code]:bg-muted [&_code]:px-1 [&_code]:py-0.5 [&_pre]:overflow-x-auto [&_pre]:rounded-lg [&_pre]:bg-muted [&_pre]:p-3">
-        <ReactMarkdown>{text || "…"}</ReactMarkdown>
+      <div className="min-w-0 flex-1">
+        {searches.length > 0 && (
+          <div className="mb-2 flex flex-col gap-1">
+            {searches.map((s, i) => (
+              <span
+                key={i}
+                className="inline-flex w-fit max-w-full items-center gap-1.5 truncate rounded-full border border-border/60 bg-card/50 px-2.5 py-1 text-[11px] text-muted-foreground"
+              >
+                <Globe className={cn("h-3 w-3 text-primary", !s.done && "animate-pulse")} />
+                <span className="truncate">{s.label}</span>
+              </span>
+            ))}
+          </div>
+        )}
+        <div className="prose prose-invert prose-sm min-w-0 max-w-none text-[15px] leading-relaxed [&_code]:rounded [&_code]:bg-muted [&_code]:px-1 [&_code]:py-0.5 [&_pre]:overflow-x-auto [&_pre]:rounded-lg [&_pre]:bg-muted [&_pre]:p-3">
+          <ReactMarkdown>{text || (searches.length > 0 ? "" : "…")}</ReactMarkdown>
+        </div>
       </div>
     </div>
   );
 }
+
 
 function Dot({ delay }: { delay: number }) {
   return (
