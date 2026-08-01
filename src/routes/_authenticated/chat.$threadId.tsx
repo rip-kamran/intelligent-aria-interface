@@ -536,12 +536,12 @@ function MessageBubble({ message }: { message: UIMessage }) {
       </div>
     );
   }
-  const searches = message.parts
-    .filter(
-      (p): p is { type: string; state?: string; input?: { query?: string; url?: string } } =>
-        typeof p.type === "string" &&
-        (p.type === "tool-web_search" || p.type === "tool-open_page"),
-    )
+  const searches = (message.parts as unknown as Array<{
+    type: string;
+    state?: string;
+    input?: { query?: string; url?: string };
+  }>)
+    .filter((p) => p.type === "tool-web_search" || p.type === "tool-open_page")
     .map((p) => ({
       label:
         p.type === "tool-web_search"
@@ -549,6 +549,7 @@ function MessageBubble({ message }: { message: UIMessage }) {
           : `Read ${p.input?.url ?? "a page"}`,
       done: p.state === "output-available" || p.state === "output-error",
     }));
+
 
   return (
     <div className="flex gap-3">
