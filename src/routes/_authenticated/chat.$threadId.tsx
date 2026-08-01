@@ -536,15 +536,45 @@ function MessageBubble({ message }: { message: UIMessage }) {
       </div>
     );
   }
+  const searches = message.parts
+    .filter(
+      (p): p is { type: string; state?: string; input?: { query?: string; url?: string } } =>
+        typeof p.type === "string" &&
+        (p.type === "tool-web_search" || p.type === "tool-open_page"),
+    )
+    .map((p) => ({
+      label:
+        p.type === "tool-web_search"
+          ? `Searched the web${p.input?.query ? ` · "${p.input.query}"` : ""}`
+          : `Read ${p.input?.url ?? "a page"}`,
+      done: p.state === "output-available" || p.state === "output-error",
+    }));
+
   return (
     <div className="flex gap-3">
       <AriaLogo className="mt-1 h-6 w-6 shrink-0" />
-      <div className="prose prose-invert prose-sm min-w-0 max-w-none flex-1 text-[15px] leading-relaxed [&_code]:rounded [&_code]:bg-muted [&_code]:px-1 [&_code]:py-0.5 [&_pre]:overflow-x-auto [&_pre]:rounded-lg [&_pre]:bg-muted [&_pre]:p-3">
-        <ReactMarkdown>{text || "…"}</ReactMarkdown>
+      <div className="min-w-0 flex-1">
+        {searches.length > 0 && (
+          <div className="mb-2 flex flex-col gap-1">
+            {searches.map((s, i) => (
+              <span
+                key={i}
+                className="inline-flex w-fit max-w-full items-center gap-1.5 truncate rounded-full border border-border/60 bg-card/50 px-2.5 py-1 text-[11px] text-muted-foreground"
+              >
+                <Globe className={cn("h-3 w-3 text-primary", !s.done && "animate-pulse")} />
+                <span className="truncate">{s.label}</span>
+              </span>
+            ))}
+          </div>
+        )}
+        <div className="prose prose-invert prose-sm min-w-0 max-w-none text-[15px] leading-relaxed [&_code]:rounded [&_code]:bg-muted [&_code]:px-1 [&_code]:py-0.5 [&_pre]:overflow-x-auto [&_pre]:rounded-lg [&_pre]:bg-muted [&_pre]:p-3">
+          <ReactMarkdown>{text || (searches.length > 0 ? "" : "…")}</ReactMarkdown>
+        </div>
       </div>
     </div>
   );
 }
+
 
 function Dot({ delay }: { delay: number }) {
   return (
