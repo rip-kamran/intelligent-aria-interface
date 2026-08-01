@@ -320,6 +320,9 @@ function ChatThread() {
           <ExportButton messages={initial ?? []} title={threads.find((t) => t.id === threadId)?.title || "chat"} />
         </header>
 
+        <UsageWarning usage={usage} className="mx-4 mt-3 md:mx-6" />
+
+
         {initial === null ? (
           <div className="flex flex-1 items-center justify-center">
             <AriaLogo className="h-8 w-8 animate-pulse" />
