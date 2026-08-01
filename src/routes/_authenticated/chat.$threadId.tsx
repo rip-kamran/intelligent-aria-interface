@@ -27,7 +27,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { ModelSelector } from "@/components/model-selector";
-import { UsageMeter, useUsage } from "@/components/usage-meter";
+import { UsageMeter, UsageWarning, useUsage } from "@/components/usage-meter";
 import { toast, Toaster } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/use-auth";
