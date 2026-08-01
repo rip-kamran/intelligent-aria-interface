@@ -121,6 +121,7 @@ export type Database = {
           day: string
           id: string
           message_count: number
+          reset_at: string
           updated_at: string
           user_id: string
         }
@@ -129,6 +130,7 @@ export type Database = {
           day?: string
           id?: string
           message_count?: number
+          reset_at?: string
           updated_at?: string
           user_id: string
         }
@@ -137,6 +139,7 @@ export type Database = {
           day?: string
           id?: string
           message_count?: number
+          reset_at?: string
           updated_at?: string
           user_id?: string
         }
