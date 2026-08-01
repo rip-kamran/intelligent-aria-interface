@@ -65,18 +65,19 @@ async function instantAnswer(query: string): Promise<SearchResult | null> {
 
 /** HTML endpoint — general organic results. */
 async function htmlResults(query: string, limit: number): Promise<SearchResult[]> {
-  const res = await fetch("https://html.duckduckgo.com/html/", {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/x-www-form-urlencoded",
-      "User-Agent":
-        "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0 Safari/537.36",
-      Accept: "text/html",
+  const res = await fetch(
+    `https://html.duckduckgo.com/html/?q=${encodeURIComponent(query)}&kl=wt-wt`,
+    {
+      headers: {
+        "User-Agent":
+          "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0 Safari/537.36",
+        Accept: "text/html",
+      },
     },
-    body: new URLSearchParams({ q: query, kl: "wt-wt" }).toString(),
-  });
+  );
   if (!res.ok) return [];
   const html = await res.text();
+
 
   const results: SearchResult[] = [];
   const linkRe =
