@@ -190,7 +190,10 @@ export const Route = createFileRoute("/api/chat")({
             const result = streamText({
               model,
               system,
+              tools: ariaTools,
+              stopWhen: stepCountIs(5),
               messages: convertToModelMessages(body.messages),
+
               onFinish: async ({ text }) => {
                 if (!body.threadId) return;
                 await auth.client.from("messages").insert({
