@@ -148,10 +148,9 @@ function SettingsPage() {
     const content = newMemory.trim();
     if (!content) return;
     try {
-      const res = await addMem({ data: { content } });
+      await addMem({ data: { content } });
       setNewMemory("");
-      if ((res as { saved?: boolean }).saved === false) toast.message("Aria already remembers that");
-      else toast.success("Memory saved");
+      toast.success("Memory saved");
       await refreshMemories();
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Failed to save memory");
@@ -164,10 +163,11 @@ function SettingsPage() {
   };
 
   const handleClearMemories = async () => {
-    await clearMem({ data: {} });
+    await clearMem();
     await refreshMemories();
     toast.success("All memories cleared");
   };
+
 
 
   return (
