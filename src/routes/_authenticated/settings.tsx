@@ -2,11 +2,12 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { toast, Toaster } from "sonner";
 import { useServerFn } from "@tanstack/react-start";
-import { ArrowLeft, Trash2 } from "lucide-react";
+import { ArrowLeft, Trash2, Brain, Plus } from "lucide-react";
 import { AriaLogo } from "@/components/aria-logo";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
 import {
   MODEL_LIST,
@@ -27,8 +28,18 @@ import {
   listApiKeys,
   saveApiKey,
   deleteApiKey,
+  RESPONSE_STYLES,
+  RESPONSE_LENGTHS,
 } from "@/lib/settings.functions";
+import {
+  listMemories,
+  addMemory,
+  deleteMemory,
+  clearMemories,
+  type MemoryRow,
+} from "@/lib/memory.functions";
 import { UsageMeter, useUsage } from "@/components/usage-meter";
+
 
 export const Route = createFileRoute("/_authenticated/settings")({
   head: () => ({
@@ -47,28 +58,46 @@ function SettingsPage() {
   const saveK = useServerFn(saveApiKey);
   const delK = useServerFn(deleteApiKey);
 
+  const listMem = useServerFn(listMemories);
+  const addMem = useServerFn(addMemory);
+  const delMem = useServerFn(deleteMemory);
+  const clearMem = useServerFn(clearMemories);
+
   const [displayName, setDisplayName] = useState("");
   const [instructions, setInstructions] = useState("");
   const [preferredModel, setPreferredModel] = useState<ModelId>("prose");
   const [plan, setPlan] = useState<PlanId>("free");
+  const [memoryEnabled, setMemoryEnabled] = useState(true);
+  const [webSearchEnabled, setWebSearchEnabled] = useState(true);
+  const [responseStyle, setResponseStyle] = useState<string>("default");
+  const [responseLength, setResponseLength] = useState<string>("balanced");
   const { usage } = useUsage();
   const [keys, setKeys] = useState<Array<{ provider: string; masked: string }>>([]);
   const [inputs, setInputs] = useState<Record<string, string>>({});
   const [saving, setSaving] = useState(false);
+  const [memories, setMemories] = useState<MemoryRow[]>([]);
+  const [newMemory, setNewMemory] = useState("");
 
   const refreshKeys = () => listK().then((k) => setKeys(k)).catch(() => {});
+  const refreshMemories = () => listMem().then((m) => setMemories(m)).catch(() => {});
 
   useEffect(() => {
     getP()
       .then((p) => {
+        const prof = p as Record<string, unknown>;
         setDisplayName(p.display_name || "");
         setInstructions(p.custom_instructions || "");
         setPreferredModel((p.preferred_model as ModelId) || "prose");
         setPlan(effectivePlan((((p as { plan?: string }).plan ?? "free") as PlanId)));
+        setMemoryEnabled(prof.memory_enabled !== false);
+        setWebSearchEnabled(prof.web_search_enabled !== false);
+        setResponseStyle((prof.response_style as string) || "default");
+        setResponseLength((prof.response_length as string) || "balanced");
       })
       .catch(() => {});
 
     refreshKeys();
+    refreshMemories();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -80,6 +109,10 @@ function SettingsPage() {
           display_name: displayName || null,
           custom_instructions: instructions || null,
           preferred_model: preferredModel,
+          memory_enabled: memoryEnabled,
+          web_search_enabled: webSearchEnabled,
+          response_style: responseStyle as (typeof RESPONSE_STYLES)[number],
+          response_length: responseLength as (typeof RESPONSE_LENGTHS)[number],
         },
       });
       toast.success("Saved");
@@ -87,6 +120,7 @@ function SettingsPage() {
       toast.error(e instanceof Error ? e.message : "Failed to save");
     } finally {
       setSaving(false);
+
     }
   };
 
@@ -109,6 +143,32 @@ function SettingsPage() {
   };
 
   const keyByProvider = (p: string) => keys.find((k) => k.provider === p);
+
+  const handleAddMemory = async () => {
+    const content = newMemory.trim();
+    if (!content) return;
+    try {
+      await addMem({ data: { content } });
+      setNewMemory("");
+      toast.success("Memory saved");
+      await refreshMemories();
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Failed to save memory");
+    }
+  };
+
+  const handleDeleteMemory = async (id: string) => {
+    await delMem({ data: { id } });
+    await refreshMemories();
+  };
+
+  const handleClearMemories = async () => {
+    await clearMem();
+    await refreshMemories();
+    toast.success("All memories cleared");
+  };
+
+
 
   return (
     <div className="min-h-screen bg-aria-hero">
@@ -239,11 +299,126 @@ function SettingsPage() {
 
               </select>
             </div>
+            <div className="grid gap-4 sm:grid-cols-2">
+              <div>
+                <Label htmlFor="style">Response style</Label>
+                <select
+                  id="style"
+                  value={responseStyle}
+                  onChange={(e) => setResponseStyle(e.target.value)}
+                  className="mt-1 w-full rounded-md border border-border/60 bg-background px-3 py-2 text-sm capitalize"
+                >
+                  {RESPONSE_STYLES.map((s) => (
+                    <option key={s} value={s} className="capitalize">
+                      {s}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <Label htmlFor="length">Response length</Label>
+                <select
+                  id="length"
+                  value={responseLength}
+                  onChange={(e) => setResponseLength(e.target.value)}
+                  className="mt-1 w-full rounded-md border border-border/60 bg-background px-3 py-2 text-sm capitalize"
+                >
+                  {RESPONSE_LENGTHS.map((s) => (
+                    <option key={s} value={s} className="capitalize">
+                      {s}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            </div>
+
+            <div className="space-y-3 rounded-xl border border-border/50 bg-background/40 p-4">
+              <div className="flex items-center justify-between gap-4">
+                <div>
+                  <p className="text-sm font-medium">Long-term memory</p>
+                  <p className="text-xs text-muted-foreground">
+                    Let Aria remember facts about you across conversations.
+                  </p>
+                </div>
+                <Switch checked={memoryEnabled} onCheckedChange={setMemoryEnabled} />
+              </div>
+              <div className="flex items-center justify-between gap-4">
+                <div>
+                  <p className="text-sm font-medium">Web search</p>
+                  <p className="text-xs text-muted-foreground">
+                    Allow Aria to browse the live web for up-to-date answers.
+                  </p>
+                </div>
+                <Switch checked={webSearchEnabled} onCheckedChange={setWebSearchEnabled} />
+              </div>
+            </div>
+
             <Button onClick={saveProfile} disabled={saving} className="rounded-lg">
               {saving ? "Saving…" : "Save"}
             </Button>
           </div>
         </section>
+
+        {/* Memory */}
+        <section className="mb-10 rounded-2xl border border-border/60 bg-card/50 p-6 backdrop-blur">
+          <div className="flex items-start justify-between gap-4">
+            <div>
+              <h2 className="flex items-center gap-2 text-lg font-medium">
+                <Brain className="h-4 w-4 text-primary" /> Memory
+              </h2>
+              <p className="mt-1 text-sm text-muted-foreground">
+                What Aria remembers about you. Add or remove anything at any time.
+              </p>
+            </div>
+            {memories.length > 0 && (
+              <Button variant="ghost" size="sm" onClick={handleClearMemories}>
+                Clear all
+              </Button>
+            )}
+          </div>
+
+          <div className="mt-5 flex gap-2">
+            <Input
+              value={newMemory}
+              onChange={(e) => setNewMemory(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") {
+                  e.preventDefault();
+                  void handleAddMemory();
+                }
+              }}
+              placeholder="e.g. I'm building an app called Aria"
+            />
+            <Button onClick={handleAddMemory} className="rounded-lg">
+              <Plus className="h-4 w-4" />
+            </Button>
+          </div>
+
+          <div className="mt-4 space-y-2">
+            {memories.length === 0 ? (
+              <p className="text-sm text-muted-foreground">
+                No memories yet — Aria will save useful details as you chat.
+              </p>
+            ) : (
+              memories.map((m) => (
+                <div
+                  key={m.id}
+                  className="flex items-start justify-between gap-3 rounded-lg border border-border/50 bg-background/40 px-3 py-2"
+                >
+                  <p className="text-sm leading-relaxed">{m.content}</p>
+                  <button
+                    onClick={() => handleDeleteMemory(m.id)}
+                    className="mt-0.5 shrink-0 text-muted-foreground transition-colors hover:text-destructive"
+                    aria-label="Delete memory"
+                  >
+                    <Trash2 className="h-4 w-4" />
+                  </button>
+                </div>
+              ))
+            )}
+          </div>
+        </section>
+
 
         {/* API Keys */}
         <section className="rounded-2xl border border-border/60 bg-card/50 p-6 backdrop-blur">

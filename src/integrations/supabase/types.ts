@@ -14,6 +14,39 @@ export type Database = {
   }
   public: {
     Tables: {
+      memories: {
+        Row: {
+          content: string
+          created_at: string
+          embedding: string | null
+          id: string
+          kind: string
+          source_thread_id: string | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          content: string
+          created_at?: string
+          embedding?: string | null
+          id?: string
+          kind?: string
+          source_thread_id?: string | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          content?: string
+          created_at?: string
+          embedding?: string | null
+          id?: string
+          kind?: string
+          source_thread_id?: string | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       messages: {
         Row: {
           created_at: string
@@ -58,27 +91,39 @@ export type Database = {
           custom_instructions: string | null
           display_name: string | null
           id: string
+          memory_enabled: boolean
           plan: string
           preferred_model: string
+          response_length: string
+          response_style: string
           updated_at: string
+          web_search_enabled: boolean
         }
         Insert: {
           created_at?: string
           custom_instructions?: string | null
           display_name?: string | null
           id: string
+          memory_enabled?: boolean
           plan?: string
           preferred_model?: string
+          response_length?: string
+          response_style?: string
           updated_at?: string
+          web_search_enabled?: boolean
         }
         Update: {
           created_at?: string
           custom_instructions?: string | null
           display_name?: string | null
           id?: string
+          memory_enabled?: boolean
           plan?: string
           preferred_model?: string
+          response_length?: string
+          response_style?: string
           updated_at?: string
+          web_search_enabled?: boolean
         }
         Relationships: []
       }
@@ -177,7 +222,19 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      match_memories: {
+        Args: {
+          _user_id: string
+          match_count?: number
+          query_embedding: string
+        }
+        Returns: {
+          content: string
+          id: string
+          kind: string
+          similarity: number
+        }[]
+      }
     }
     Enums: {
       [_ in never]: never

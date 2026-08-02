@@ -8,7 +8,9 @@ export const getProfile = createServerFn({ method: "GET" })
   .handler(async ({ context }) => {
     const { data, error } = await context.supabase
       .from("profiles")
-      .select("display_name, custom_instructions, preferred_model, plan")
+      .select(
+        "display_name, custom_instructions, preferred_model, plan, memory_enabled, web_search_enabled, response_style, response_length",
+      )
       .eq("id", context.userId)
       .maybeSingle();
     if (error) throw new Error(error.message);
@@ -18,9 +20,23 @@ export const getProfile = createServerFn({ method: "GET" })
         custom_instructions: null,
         preferred_model: "prose",
         plan: "free",
+        memory_enabled: true,
+        web_search_enabled: true,
+        response_style: "default",
+        response_length: "balanced",
       }
     );
   });
+
+export const RESPONSE_STYLES = [
+  "default",
+  "friendly",
+  "concise",
+  "professional",
+  "technical",
+  "socratic",
+] as const;
+export const RESPONSE_LENGTHS = ["short", "balanced", "detailed"] as const;
 
 export const updateProfile = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
@@ -30,6 +46,10 @@ export const updateProfile = createServerFn({ method: "POST" })
         display_name: z.string().max(80).nullable().optional(),
         custom_instructions: z.string().max(4000).nullable().optional(),
         preferred_model: z.enum(MODEL_IDS).optional(),
+        memory_enabled: z.boolean().optional(),
+        web_search_enabled: z.boolean().optional(),
+        response_style: z.enum(RESPONSE_STYLES).optional(),
+        response_length: z.enum(RESPONSE_LENGTHS).optional(),
       })
       .parse(d),
   )
@@ -51,6 +71,7 @@ export const updateProfile = createServerFn({ method: "POST" })
     if (error) throw new Error(error.message);
     return { ok: true };
   });
+
 
 
 export const listApiKeys = createServerFn({ method: "GET" })
