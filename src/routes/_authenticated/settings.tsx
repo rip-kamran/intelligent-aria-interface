@@ -299,11 +299,126 @@ function SettingsPage() {
 
               </select>
             </div>
+            <div className="grid gap-4 sm:grid-cols-2">
+              <div>
+                <Label htmlFor="style">Response style</Label>
+                <select
+                  id="style"
+                  value={responseStyle}
+                  onChange={(e) => setResponseStyle(e.target.value)}
+                  className="mt-1 w-full rounded-md border border-border/60 bg-background px-3 py-2 text-sm capitalize"
+                >
+                  {RESPONSE_STYLES.map((s) => (
+                    <option key={s} value={s} className="capitalize">
+                      {s}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <Label htmlFor="length">Response length</Label>
+                <select
+                  id="length"
+                  value={responseLength}
+                  onChange={(e) => setResponseLength(e.target.value)}
+                  className="mt-1 w-full rounded-md border border-border/60 bg-background px-3 py-2 text-sm capitalize"
+                >
+                  {RESPONSE_LENGTHS.map((s) => (
+                    <option key={s} value={s} className="capitalize">
+                      {s}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            </div>
+
+            <div className="space-y-3 rounded-xl border border-border/50 bg-background/40 p-4">
+              <div className="flex items-center justify-between gap-4">
+                <div>
+                  <p className="text-sm font-medium">Long-term memory</p>
+                  <p className="text-xs text-muted-foreground">
+                    Let Aria remember facts about you across conversations.
+                  </p>
+                </div>
+                <Switch checked={memoryEnabled} onCheckedChange={setMemoryEnabled} />
+              </div>
+              <div className="flex items-center justify-between gap-4">
+                <div>
+                  <p className="text-sm font-medium">Web search</p>
+                  <p className="text-xs text-muted-foreground">
+                    Allow Aria to browse the live web for up-to-date answers.
+                  </p>
+                </div>
+                <Switch checked={webSearchEnabled} onCheckedChange={setWebSearchEnabled} />
+              </div>
+            </div>
+
             <Button onClick={saveProfile} disabled={saving} className="rounded-lg">
               {saving ? "Saving…" : "Save"}
             </Button>
           </div>
         </section>
+
+        {/* Memory */}
+        <section className="mb-10 rounded-2xl border border-border/60 bg-card/50 p-6 backdrop-blur">
+          <div className="flex items-start justify-between gap-4">
+            <div>
+              <h2 className="flex items-center gap-2 text-lg font-medium">
+                <Brain className="h-4 w-4 text-primary" /> Memory
+              </h2>
+              <p className="mt-1 text-sm text-muted-foreground">
+                What Aria remembers about you. Add or remove anything at any time.
+              </p>
+            </div>
+            {memories.length > 0 && (
+              <Button variant="ghost" size="sm" onClick={handleClearMemories}>
+                Clear all
+              </Button>
+            )}
+          </div>
+
+          <div className="mt-5 flex gap-2">
+            <Input
+              value={newMemory}
+              onChange={(e) => setNewMemory(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") {
+                  e.preventDefault();
+                  void handleAddMemory();
+                }
+              }}
+              placeholder="e.g. I'm building an app called Aria"
+            />
+            <Button onClick={handleAddMemory} className="rounded-lg">
+              <Plus className="h-4 w-4" />
+            </Button>
+          </div>
+
+          <div className="mt-4 space-y-2">
+            {memories.length === 0 ? (
+              <p className="text-sm text-muted-foreground">
+                No memories yet — Aria will save useful details as you chat.
+              </p>
+            ) : (
+              memories.map((m) => (
+                <div
+                  key={m.id}
+                  className="flex items-start justify-between gap-3 rounded-lg border border-border/50 bg-background/40 px-3 py-2"
+                >
+                  <p className="text-sm leading-relaxed">{m.content}</p>
+                  <button
+                    onClick={() => handleDeleteMemory(m.id)}
+                    className="mt-0.5 shrink-0 text-muted-foreground transition-colors hover:text-destructive"
+                    aria-label="Delete memory"
+                  >
+                    <Trash2 className="h-4 w-4" />
+                  </button>
+                </div>
+              ))
+            )}
+          </div>
+        </section>
+
 
         {/* API Keys */}
         <section className="rounded-2xl border border-border/60 bg-card/50 p-6 backdrop-blur">
