@@ -144,6 +144,32 @@ function SettingsPage() {
 
   const keyByProvider = (p: string) => keys.find((k) => k.provider === p);
 
+  const handleAddMemory = async () => {
+    const content = newMemory.trim();
+    if (!content) return;
+    try {
+      const res = await addMem({ data: { content } });
+      setNewMemory("");
+      if ((res as { saved?: boolean }).saved === false) toast.message("Aria already remembers that");
+      else toast.success("Memory saved");
+      await refreshMemories();
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Failed to save memory");
+    }
+  };
+
+  const handleDeleteMemory = async (id: string) => {
+    await delMem({ data: { id } });
+    await refreshMemories();
+  };
+
+  const handleClearMemories = async () => {
+    await clearMem({ data: {} });
+    await refreshMemories();
+    toast.success("All memories cleared");
+  };
+
+
   return (
     <div className="min-h-screen bg-aria-hero">
       <Toaster theme="dark" />
