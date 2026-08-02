@@ -190,9 +190,29 @@ export const Route = createFileRoute("/api/chat")({
         const chain = MODELS[modelId].chain;
 
 
+        const prefs = (profile ?? {}) as {
+          memory_enabled?: boolean;
+          web_search_enabled?: boolean;
+          response_style?: string;
+          response_length?: string;
+        };
+        const memoryOn = prefs.memory_enabled !== false;
+        const webSearchOn = prefs.web_search_enabled !== false;
+        const ariaTools = buildTools({
+          userId: auth.userId,
+          threadId: body.threadId,
+          webSearch: webSearchOn,
+          memory: memoryOn,
+        });
+
         // Build system prompt with custom instructions
         let system = FULL_MODEL_PROMPTS[modelId];
-        system += `\n\n<tools>\nYou can browse the live web with DuckDuckGo.\n- Call web_search whenever the answer depends on current, recent, local or fast-changing information (news, prices, sports, weather, releases, "today", "latest"), or when you are unsure of a fact.\n- Call open_page on a result URL when the snippet is not enough.\n- Never invent sources. Cite the pages you used inline as markdown links.\n- For timeless knowledge, answer directly without searching.\n</tools>`;
+        if (webSearchOn) {
+          system += `\n\n<tools>\nYou can browse the live web with DuckDuckGo.\n- Call web_search whenever the answer depends on current, recent, local or fast-changing information (news, prices, sports, weather, releases, "today", "latest"), or when you are unsure of a fact.\n- Call deep_search when accuracy matters or snippets are ambiguous — it reads the top pages in full.\n- Call open_page on a result URL when the snippet is not enough.\n- Prefer primary/official sources; if sources disagree, say so.\n- Never invent sources. Cite the pages you used inline as markdown links.\n- For timeless knowledge, answer directly without searching.\n</tools>`;
+        }
+        if (memoryOn) {
+          system += `\n\n<memory>\nYou have long-term memory across conversations.\n- Call remember when the user shares a durable fact about themselves (name, role, preferences, projects, goals, constraints). Keep each memory one concise sentence.\n- Do not remember trivia, one-off questions or sensitive data unless asked.\n- Call recall when you need details from past conversations that are not in the notes below.\n- Never announce memory operations unless the user asks.\n</memory>`;
+        }
 
         if (profile?.display_name) {
           system += `\n\nThe user's name is ${profile.display_name}.`;
@@ -200,6 +220,44 @@ export const Route = createFileRoute("/api/chat")({
         if (profile?.custom_instructions?.trim()) {
           system += `\n\n<user_preferences>\n${profile.custom_instructions.trim()}\n</user_preferences>`;
         }
+
+        const STYLE_HINTS: Record<string, string> = {
+          friendly: "Warm, conversational and encouraging.",
+          concise: "Answer in as few words as possible. No preamble.",
+          professional: "Polished, neutral, business-appropriate tone.",
+          technical: "Precise and technical; assume expert knowledge and include specifics.",
+          socratic: "Guide with questions and reasoning steps before giving answers.",
+        };
+        const LENGTH_HINTS: Record<string, string> = {
+          short: "Keep responses brief — a few sentences unless more is explicitly requested.",
+          detailed: "Give thorough, well-structured responses with useful depth and examples.",
+        };
+        const styleHint = STYLE_HINTS[prefs.response_style ?? "default"];
+        const lengthHint = LENGTH_HINTS[prefs.response_length ?? "balanced"];
+        if (styleHint || lengthHint) {
+          system += `\n\n<response_style>\n${[styleHint, lengthHint].filter(Boolean).join("\n")}\n</response_style>`;
+        }
+
+        // Inject relevant long-term memories for this turn.
+        const lastUser = [...body.messages].reverse().find((m) => m.role === "user");
+        const lastUserText =
+          lastUser?.parts
+            ?.map((p) => (p.type === "text" ? p.text : ""))
+            .join(" ")
+            .trim() ?? "";
+        if (memoryOn && lastUserText) {
+          try {
+            const hits = await recallMemories(auth.userId, lastUserText, 6);
+            if (hits.length > 0) {
+              system += `\n\n<memory_notes>\nThings you remember about this user from past conversations:\n${hits
+                .map((h) => `- ${h.content}`)
+                .join("\n")}\nUse these naturally when relevant; do not recite them.\n</memory_notes>`;
+            }
+          } catch {
+            /* memory is best-effort */
+          }
+        }
+
 
         // Persist user message + ensure thread exists
         const userMsg = body.messages[body.messages.length - 1];
