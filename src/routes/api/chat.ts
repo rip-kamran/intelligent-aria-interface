@@ -21,29 +21,76 @@ import {
 } from "@/lib/aria-prompts";
 import { FULL_MODEL_PROMPTS } from "@/lib/model-prompts.server";
 import { createProviderModel, createLovableFallbackModel } from "@/lib/ai-gateway.server";
-import { duckDuckGoSearch, fetchPageText } from "@/lib/search.server";
+import { duckDuckGoSearch, fetchPageText, deepSearch } from "@/lib/search.server";
+import { saveMemory, recallMemories } from "@/lib/memory.server";
 
-const ariaTools = {
-  web_search: tool({
-    description:
-      "Search the live web with DuckDuckGo. Use for real-time, recent or factual questions (news, prices, releases, anything after your training cutoff). Returns titles, URLs and snippets.",
-    inputSchema: z.object({
-      query: z.string().describe("The search query"),
-      maxResults: z.number().min(1).max(10).optional(),
-    }),
-    execute: async ({ query, maxResults }) => {
-      const results = await duckDuckGoSearch(query, maxResults ?? 6);
-      if (results.length === 0) return { query, results: [], note: "No results found." };
-      return { query, results };
-    },
-  }),
-  open_page: tool({
-    description:
-      "Open a URL returned by web_search and read its text content, when a snippet is not enough.",
-    inputSchema: z.object({ url: z.string().describe("Absolute http(s) URL") }),
-    execute: async ({ url }) => ({ url, text: await fetchPageText(url) }),
-  }),
-};
+function buildTools(opts: {
+  userId: string;
+  threadId?: string;
+  webSearch: boolean;
+  memory: boolean;
+}) {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const tools: Record<string, any> = {};
+
+  if (opts.webSearch) {
+    tools.web_search = tool({
+      description:
+        "Search the live web (DuckDuckGo + Wikipedia, merged and re-ranked). Use for real-time, recent or factual questions (news, prices, releases, anything after your training cutoff). Returns titles, URLs and snippets.",
+      inputSchema: z.object({
+        query: z.string().describe("The search query"),
+        maxResults: z.number().min(1).max(10).optional(),
+      }),
+      execute: async ({ query, maxResults }: { query: string; maxResults?: number }) => {
+        const results = await duckDuckGoSearch(query, maxResults ?? 6);
+        if (results.length === 0) return { query, results: [], note: "No results found." };
+        return { query, results };
+      },
+    });
+    tools.deep_search = tool({
+      description:
+        "Search the web AND read the top pages in full. Use when accuracy matters, when snippets are ambiguous, or for detailed research questions.",
+      inputSchema: z.object({ query: z.string().describe("The research question") }),
+      execute: async ({ query }: { query: string }) => deepSearch(query, 5),
+    });
+    tools.open_page = tool({
+      description:
+        "Open a URL returned by web_search and read its text content, when a snippet is not enough.",
+      inputSchema: z.object({ url: z.string().describe("Absolute http(s) URL") }),
+      execute: async ({ url }: { url: string }) => ({ url, text: await fetchPageText(url) }),
+    });
+  }
+
+  if (opts.memory) {
+    tools.remember = tool({
+      description:
+        "Save a durable fact about the user to long-term memory (their name, job, preferences, ongoing projects, goals, constraints). Only save things worth recalling in future conversations. One concise fact per call.",
+      inputSchema: z.object({
+        fact: z.string().describe("A concise fact, written in third person, e.g. 'Prefers TypeScript'"),
+      }),
+      execute: async ({ fact }: { fact: string }) => {
+        const res = await saveMemory({
+          userId: opts.userId,
+          content: fact,
+          kind: "fact",
+          threadId: opts.threadId ?? null,
+        });
+        return res.saved ? { saved: true, fact } : { saved: false, reason: res.reason };
+      },
+    });
+    tools.recall = tool({
+      description:
+        "Search the user's long-term memory for anything they told you in past conversations.",
+      inputSchema: z.object({ query: z.string() }),
+      execute: async ({ query }: { query: string }) => ({
+        memories: await recallMemories(opts.userId, query, 8),
+      }),
+    });
+  }
+
+  return tools;
+}
+
 
 // Built-in Aria (no personal API key) is capped per rolling 12-hour window.
 async function checkAndCountFreeUsage(userId: string, plan: PlanId) {
