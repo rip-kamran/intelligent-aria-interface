@@ -300,7 +300,7 @@ export const Route = createFileRoute("/api/chat")({
               model,
               system,
               tools: ariaTools,
-              stopWhen: stepCountIs(5),
+              stopWhen: stepCountIs(8),
               messages: convertToModelMessages(body.messages),
 
               onFinish: async ({ text }) => {
@@ -344,7 +344,7 @@ export const Route = createFileRoute("/api/chat")({
             model,
             system,
             tools: ariaTools,
-            stopWhen: stepCountIs(5),
+            stopWhen: stepCountIs(8),
             messages: convertToModelMessages(body.messages),
 
             onFinish: async ({ text }) => {
