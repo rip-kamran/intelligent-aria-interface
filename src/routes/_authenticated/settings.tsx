@@ -58,28 +58,46 @@ function SettingsPage() {
   const saveK = useServerFn(saveApiKey);
   const delK = useServerFn(deleteApiKey);
 
+  const listMem = useServerFn(listMemories);
+  const addMem = useServerFn(addMemory);
+  const delMem = useServerFn(deleteMemory);
+  const clearMem = useServerFn(clearMemories);
+
   const [displayName, setDisplayName] = useState("");
   const [instructions, setInstructions] = useState("");
   const [preferredModel, setPreferredModel] = useState<ModelId>("prose");
   const [plan, setPlan] = useState<PlanId>("free");
+  const [memoryEnabled, setMemoryEnabled] = useState(true);
+  const [webSearchEnabled, setWebSearchEnabled] = useState(true);
+  const [responseStyle, setResponseStyle] = useState<string>("default");
+  const [responseLength, setResponseLength] = useState<string>("balanced");
   const { usage } = useUsage();
   const [keys, setKeys] = useState<Array<{ provider: string; masked: string }>>([]);
   const [inputs, setInputs] = useState<Record<string, string>>({});
   const [saving, setSaving] = useState(false);
+  const [memories, setMemories] = useState<MemoryRow[]>([]);
+  const [newMemory, setNewMemory] = useState("");
 
   const refreshKeys = () => listK().then((k) => setKeys(k)).catch(() => {});
+  const refreshMemories = () => listMem().then((m) => setMemories(m)).catch(() => {});
 
   useEffect(() => {
     getP()
       .then((p) => {
+        const prof = p as Record<string, unknown>;
         setDisplayName(p.display_name || "");
         setInstructions(p.custom_instructions || "");
         setPreferredModel((p.preferred_model as ModelId) || "prose");
         setPlan(effectivePlan((((p as { plan?: string }).plan ?? "free") as PlanId)));
+        setMemoryEnabled(prof.memory_enabled !== false);
+        setWebSearchEnabled(prof.web_search_enabled !== false);
+        setResponseStyle((prof.response_style as string) || "default");
+        setResponseLength((prof.response_length as string) || "balanced");
       })
       .catch(() => {});
 
     refreshKeys();
+    refreshMemories();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -91,6 +109,10 @@ function SettingsPage() {
           display_name: displayName || null,
           custom_instructions: instructions || null,
           preferred_model: preferredModel,
+          memory_enabled: memoryEnabled,
+          web_search_enabled: webSearchEnabled,
+          response_style: responseStyle as (typeof RESPONSE_STYLES)[number],
+          response_length: responseLength as (typeof RESPONSE_LENGTHS)[number],
         },
       });
       toast.success("Saved");
@@ -98,6 +120,7 @@ function SettingsPage() {
       toast.error(e instanceof Error ? e.message : "Failed to save");
     } finally {
       setSaving(false);
+
     }
   };
 
