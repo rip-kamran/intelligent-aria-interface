@@ -165,7 +165,9 @@ export const Route = createFileRoute("/api/chat")({
         const [{ data: profile }, { data: keyRows }] = await Promise.all([
           auth.client
             .from("profiles")
-            .select("preferred_model, custom_instructions, display_name, plan")
+            .select(
+              "preferred_model, custom_instructions, display_name, plan, memory_enabled, web_search_enabled, response_style, response_length",
+            )
             .eq("id", auth.userId)
             .maybeSingle(),
           auth.client.from("user_api_keys").select("provider, api_key"),
