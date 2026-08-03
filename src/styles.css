@@ -112,3 +112,18 @@
     0 0 0 1px oklch(0.82 0.14 210 / 0.25),
     0 10px 60px -10px oklch(0.82 0.14 210 / 0.35);
 }
+
+/* Hide any injected third-party badge overlays */
+#lovable-badge,
+.lovable-badge,
+[data-lovable-badge],
+[id*="lovable-badge"],
+[class*="lovable-badge"],
+gpt-engineer-badge,
+lovable-badge,
+a[href*="lovable.dev"] {
+  display: none !important;
+  visibility: hidden !important;
+  opacity: 0 !important;
+  pointer-events: none !important;
+}
