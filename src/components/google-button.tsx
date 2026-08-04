@@ -1,4 +1,4 @@
-import { supabase } from "@/integrations/supabase/client";
+import { lovable } from "@/integrations/lovable/index";
 import { Button } from "@/components/ui/button";
 
 function GoogleMark({ className }: { className?: string }) {
@@ -34,14 +34,21 @@ export function GoogleButton({
   redirectPath?: string;
 }) {
   const handleClick = async () => {
-    const { error } = await supabase.auth.signInWithOAuth({
-      provider: "google",
-      options: {
-        redirectTo: `${window.location.origin}${redirectPath}`,
-        queryParams: { prompt: "select_account" },
-      },
+    try {
+      sessionStorage.setItem("aria:redirect", redirectPath);
+    } catch {
+      /* ignore */
+    }
+    const result = await lovable.auth.signInWithOAuth("google", {
+      redirect_uri: window.location.origin,
+      extraParams: { prompt: "select_account" },
     });
-    if (error) onError?.(error.message);
+    if (result.error) {
+      onError?.(result.error.message);
+      return;
+    }
+    if (result.redirected) return;
+    window.location.assign(redirectPath);
   };
 
   return (
