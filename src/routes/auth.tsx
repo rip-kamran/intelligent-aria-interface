@@ -2,11 +2,12 @@ import { createFileRoute, useNavigate, Link } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { toast, Toaster } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
-import { lovable } from "@/integrations/lovable";
 import { AriaLogo } from "@/components/aria-logo";
+import { GoogleButton } from "@/components/google-button";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+
 
 export const Route = createFileRoute("/auth")({
   ssr: false,
@@ -57,20 +58,6 @@ function AuthPage() {
     }
   };
 
-  const handleGoogle = async () => {
-    setLoading(true);
-    try {
-      const result = await lovable.auth.signInWithOAuth("google", {
-        redirect_uri: window.location.origin + "/chat",
-      });
-      if (result.error) throw result.error;
-      if (!result.redirected) navigate({ to: "/chat" });
-    } catch (e) {
-      toast.error(e instanceof Error ? e.message : "Google sign-in failed");
-      setLoading(false);
-    }
-  };
-
   return (
     <div className="flex min-h-screen items-center justify-center bg-aria-hero px-6">
       <Toaster theme="dark" />
@@ -88,20 +75,14 @@ function AuthPage() {
             {mode === "signin" ? "Sign in to continue" : "Start chatting with Aria"}
           </p>
 
-          <Button
-            onClick={handleGoogle}
-            disabled={loading}
-            variant="secondary"
-            className="mt-6 w-full rounded-lg"
-          >
-            <svg className="mr-2 h-4 w-4" viewBox="0 0 24 24">
-              <path
-                fill="currentColor"
-                d="M21.35 11.1H12v3.2h5.35c-.23 1.36-1.66 4-5.35 4-3.22 0-5.85-2.66-5.85-5.95S8.78 6.4 12 6.4c1.83 0 3.06.78 3.76 1.45l2.56-2.47C16.7 3.87 14.55 3 12 3 6.98 3 3 6.98 3 12s3.98 9 9 9c5.2 0 8.64-3.65 8.64-8.8 0-.6-.07-1.05-.15-1.5z"
-              />
-            </svg>
-            Continue with Google
-          </Button>
+          <div className="mt-6">
+            <GoogleButton
+              disabled={loading}
+              onError={(m) => toast.error(m)}
+              redirectPath="/chat"
+            />
+          </div>
+
 
           <div className="my-5 flex items-center gap-3 text-xs text-muted-foreground">
             <span className="h-px flex-1 bg-border/60" /> or <span className="h-px flex-1 bg-border/60" />
