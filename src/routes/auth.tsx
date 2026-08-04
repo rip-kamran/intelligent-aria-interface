@@ -30,7 +30,11 @@ function AuthPage() {
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data }) => {
-      if (data.session) navigate({ to: "/chat", replace: true });
+      if (!data.session) return;
+      navigate({
+        to: data.session.user.email_confirmed_at ? "/chat" : "/verify-email",
+        replace: true,
+      });
     });
   }, [navigate]);
 
@@ -46,10 +50,11 @@ function AuthPage() {
         });
         if (error) throw error;
         toast.success("Check your email to confirm your account.");
+        navigate({ to: "/verify-email" });
       } else {
-        const { error } = await supabase.auth.signInWithPassword({ email, password });
+        const { data, error } = await supabase.auth.signInWithPassword({ email, password });
         if (error) throw error;
-        navigate({ to: "/chat" });
+        navigate({ to: data.user?.email_confirmed_at ? "/chat" : "/verify-email" });
       }
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Something went wrong");
