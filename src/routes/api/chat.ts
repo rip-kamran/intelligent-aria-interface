@@ -171,12 +171,33 @@ export const Route = createFileRoute("/api/chat")({
   server: {
     handlers: {
       POST: async ({ request }) => {
-        const body = (await request.json()) as ChatBody;
-        if (!Array.isArray(body.messages)) {
+        // Reject oversized payloads before parsing (cheap abuse guard).
+        const declaredLength = Number(request.headers.get("content-length") ?? 0);
+        if (declaredLength > MAX_REQUEST_BYTES) {
+          return new Response("Message payload is too large.", { status: 413 });
+        }
+        const raw = await request.text();
+        if (raw.length > MAX_REQUEST_BYTES) {
+          return new Response("Message payload is too large.", { status: 413 });
+        }
+        let body: ChatBody;
+        try {
+          body = JSON.parse(raw) as ChatBody;
+        } catch {
+          return new Response("Invalid JSON body", { status: 400 });
+        }
+        if (!Array.isArray(body.messages) || body.messages.length === 0) {
           return new Response("Messages are required", { status: 400 });
+        }
+        if (body.messages.length > MAX_MESSAGES) {
+          body.messages = body.messages.slice(-MAX_MESSAGES);
+        }
+        if (body.threadId && !UUID_RE.test(body.threadId)) {
+          return new Response("Invalid thread id", { status: 400 });
         }
         const auth = await verifyAndGetSupabase(request);
         if (!auth) return new Response("Unauthorized", { status: 401 });
+
 
         // Load profile + keys (as user, RLS applies)
         const [{ data: profile }, { data: keyRows }] = await Promise.all([
