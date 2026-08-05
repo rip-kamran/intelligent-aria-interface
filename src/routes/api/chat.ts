@@ -92,30 +92,47 @@ function buildTools(opts: {
 }
 
 
-// Built-in Aria (no personal API key) is capped per rolling 12-hour window.
-async function checkAndCountFreeUsage(userId: string, plan: PlanId) {
+// Built-in Aria (no personal API key) is capped per rolling window.
+// Reservation happens atomically in Postgres so parallel requests can't race
+// past the limit; a failed generation releases the reserved slot.
+async function reserveUsage(userId: string, plan: PlanId) {
   const limit = DAILY_LIMITS[plan];
   const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-  const now = Date.now();
-  const nextReset = new Date(now + USAGE_WINDOW_HOURS * 3600_000).toISOString();
-  const { data } = await supabaseAdmin
-    .from("usage_daily")
-    .select("message_count, reset_at")
-    .eq("user_id", userId)
-    .eq("day", USAGE_ROW_KEY)
-    .maybeSingle();
-
-  const expired = !data || new Date(data.reset_at as string).getTime() <= now;
-  const used = expired ? 0 : (data?.message_count ?? 0);
-  const resetAt = expired ? nextReset : (data!.reset_at as string);
-
-  if (used >= limit) return { allowed: false, used, limit, resetAt };
-  await supabaseAdmin.from("usage_daily").upsert(
-    { user_id: userId, day: USAGE_ROW_KEY, message_count: used + 1, reset_at: resetAt },
-    { onConflict: "user_id,day" },
-  );
-  return { allowed: true, used: used + 1, limit, resetAt };
+  const { data, error } = await supabaseAdmin.rpc("consume_message_quota", {
+    _user_id: userId,
+    _limit: limit,
+    _window_hours: USAGE_WINDOW_HOURS,
+  });
+  if (error) {
+    // Fail closed: never let a counter failure become unlimited usage.
+    return {
+      allowed: false,
+      used: limit,
+      limit,
+      resetAt: new Date(Date.now() + USAGE_WINDOW_HOURS * 3600_000).toISOString(),
+    };
+  }
+  const row = (Array.isArray(data) ? data[0] : data) as
+    | { allowed: boolean; used: number; reset_at: string }
+    | undefined;
+  return {
+    allowed: row?.allowed === true,
+    used: row?.used ?? limit,
+    limit,
+    resetAt:
+      row?.reset_at ?? new Date(Date.now() + USAGE_WINDOW_HOURS * 3600_000).toISOString(),
+  };
 }
+
+async function releaseUsage(userId: string) {
+  try {
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    await supabaseAdmin.rpc("release_message_quota", { _user_id: userId });
+  } catch {
+    /* best effort */
+  }
+}
+
 
 
 
