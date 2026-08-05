@@ -167,7 +167,14 @@ async function verifyAndGetSupabase(request: Request) {
   return { client, userId: data.claims.sub as string };
 }
 
+/** Hard input caps — abuse guards before any model or DB work happens. */
+const MAX_REQUEST_BYTES = 256_000;
+const MAX_MESSAGES = 60;
+const UUID_RE =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
 export const Route = createFileRoute("/api/chat")({
+
   server: {
     handlers: {
       POST: async ({ request }) => {
