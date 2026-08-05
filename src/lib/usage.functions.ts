@@ -3,7 +3,7 @@ import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import {
   DAILY_LIMITS,
   effectivePlan,
-  USAGE_ROW_KEY,
+  
   USAGE_WINDOW_HOURS,
   type PlanId,
 } from "@/lib/aria-prompts";
