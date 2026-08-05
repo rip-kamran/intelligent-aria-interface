@@ -342,15 +342,20 @@ export const Route = createFileRoute("/api/chat")({
         }
 
         // No user key worked — fallback to built-in Aria (rate limited by plan).
-        const usage = await checkAndCountFreeUsage(auth.userId, plan);
+        const usage = await reserveUsage(auth.userId, plan);
         if (!usage.allowed) {
-          const hoursLeft = Math.max(
-            1,
-            Math.ceil((new Date(usage.resetAt).getTime() - Date.now()) / 3_600_000),
-          );
+          const msLeft = new Date(usage.resetAt).getTime() - Date.now();
+          const hoursLeft = Math.max(1, Math.ceil(msLeft / 3_600_000));
           return new Response(
             `You've used your full Aria allowance (${usage.limit} messages). It resets in about ${hoursLeft}h. Add your own API key in Settings for unlimited use.`,
-            { status: 429 },
+            {
+              status: 429,
+              headers: {
+                "Retry-After": String(Math.max(60, Math.ceil(msLeft / 1000))),
+                "X-Aria-Usage-Limit": String(usage.limit),
+                "X-Aria-Usage-Reset": usage.resetAt,
+              },
+            },
           );
         }
 
@@ -363,7 +368,9 @@ export const Route = createFileRoute("/api/chat")({
             tools: ariaTools,
             stopWhen: stepCountIs(8),
             messages: convertToModelMessages(body.messages),
-
+            onError: async () => {
+              await releaseUsage(auth.userId);
+            },
             onFinish: async ({ text }) => {
               if (!body.threadId) return;
               await auth.client.from("messages").insert({
@@ -378,14 +385,23 @@ export const Route = createFileRoute("/api/chat")({
                 .eq("id", body.threadId);
             },
           });
-          return result.toUIMessageStreamResponse({ originalMessages: body.messages });
+          return result.toUIMessageStreamResponse({
+            originalMessages: body.messages,
+            headers: {
+              "X-Aria-Usage-Used": String(usage.used),
+              "X-Aria-Usage-Limit": String(usage.limit),
+              "X-Aria-Usage-Reset": usage.resetAt,
+            },
+          });
         } catch (e) {
+          await releaseUsage(auth.userId);
           console.error("Chat failed", e, lastError);
           return new Response(
             "No provider available. Add an API key in Settings for the selected model.",
             { status: 502 },
           );
         }
+
       },
     },
   },
