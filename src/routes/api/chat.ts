@@ -92,30 +92,47 @@ function buildTools(opts: {
 }
 
 
-// Built-in Aria (no personal API key) is capped per rolling 12-hour window.
-async function checkAndCountFreeUsage(userId: string, plan: PlanId) {
+// Built-in Aria (no personal API key) is capped per rolling window.
+// Reservation happens atomically in Postgres so parallel requests can't race
+// past the limit; a failed generation releases the reserved slot.
+async function reserveUsage(userId: string, plan: PlanId) {
   const limit = DAILY_LIMITS[plan];
   const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-  const now = Date.now();
-  const nextReset = new Date(now + USAGE_WINDOW_HOURS * 3600_000).toISOString();
-  const { data } = await supabaseAdmin
-    .from("usage_daily")
-    .select("message_count, reset_at")
-    .eq("user_id", userId)
-    .eq("day", USAGE_ROW_KEY)
-    .maybeSingle();
-
-  const expired = !data || new Date(data.reset_at as string).getTime() <= now;
-  const used = expired ? 0 : (data?.message_count ?? 0);
-  const resetAt = expired ? nextReset : (data!.reset_at as string);
-
-  if (used >= limit) return { allowed: false, used, limit, resetAt };
-  await supabaseAdmin.from("usage_daily").upsert(
-    { user_id: userId, day: USAGE_ROW_KEY, message_count: used + 1, reset_at: resetAt },
-    { onConflict: "user_id,day" },
-  );
-  return { allowed: true, used: used + 1, limit, resetAt };
+  const { data, error } = await supabaseAdmin.rpc("consume_message_quota", {
+    _user_id: userId,
+    _limit: limit,
+    _window_hours: USAGE_WINDOW_HOURS,
+  });
+  if (error) {
+    // Fail closed: never let a counter failure become unlimited usage.
+    return {
+      allowed: false,
+      used: limit,
+      limit,
+      resetAt: new Date(Date.now() + USAGE_WINDOW_HOURS * 3600_000).toISOString(),
+    };
+  }
+  const row = (Array.isArray(data) ? data[0] : data) as
+    | { allowed: boolean; used: number; reset_at: string }
+    | undefined;
+  return {
+    allowed: row?.allowed === true,
+    used: row?.used ?? limit,
+    limit,
+    resetAt:
+      row?.reset_at ?? new Date(Date.now() + USAGE_WINDOW_HOURS * 3600_000).toISOString(),
+  };
 }
+
+async function releaseUsage(userId: string) {
+  try {
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    await supabaseAdmin.rpc("release_message_quota", { _user_id: userId });
+  } catch {
+    /* best effort */
+  }
+}
+
 
 
 
@@ -150,16 +167,44 @@ async function verifyAndGetSupabase(request: Request) {
   return { client, userId: data.claims.sub as string };
 }
 
+/** Hard input caps — abuse guards before any model or DB work happens. */
+const MAX_REQUEST_BYTES = 256_000;
+const MAX_MESSAGES = 60;
+const UUID_RE =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
 export const Route = createFileRoute("/api/chat")({
+
   server: {
     handlers: {
       POST: async ({ request }) => {
-        const body = (await request.json()) as ChatBody;
-        if (!Array.isArray(body.messages)) {
+        // Reject oversized payloads before parsing (cheap abuse guard).
+        const declaredLength = Number(request.headers.get("content-length") ?? 0);
+        if (declaredLength > MAX_REQUEST_BYTES) {
+          return new Response("Message payload is too large.", { status: 413 });
+        }
+        const raw = await request.text();
+        if (raw.length > MAX_REQUEST_BYTES) {
+          return new Response("Message payload is too large.", { status: 413 });
+        }
+        let body: ChatBody;
+        try {
+          body = JSON.parse(raw) as ChatBody;
+        } catch {
+          return new Response("Invalid JSON body", { status: 400 });
+        }
+        if (!Array.isArray(body.messages) || body.messages.length === 0) {
           return new Response("Messages are required", { status: 400 });
+        }
+        if (body.messages.length > MAX_MESSAGES) {
+          body.messages = body.messages.slice(-MAX_MESSAGES);
+        }
+        if (body.threadId && !UUID_RE.test(body.threadId)) {
+          return new Response("Invalid thread id", { status: 400 });
         }
         const auth = await verifyAndGetSupabase(request);
         if (!auth) return new Response("Unauthorized", { status: 401 });
+
 
         // Load profile + keys (as user, RLS applies)
         const [{ data: profile }, { data: keyRows }] = await Promise.all([
@@ -325,15 +370,20 @@ export const Route = createFileRoute("/api/chat")({
         }
 
         // No user key worked — fallback to built-in Aria (rate limited by plan).
-        const usage = await checkAndCountFreeUsage(auth.userId, plan);
+        const usage = await reserveUsage(auth.userId, plan);
         if (!usage.allowed) {
-          const hoursLeft = Math.max(
-            1,
-            Math.ceil((new Date(usage.resetAt).getTime() - Date.now()) / 3_600_000),
-          );
+          const msLeft = new Date(usage.resetAt).getTime() - Date.now();
+          const hoursLeft = Math.max(1, Math.ceil(msLeft / 3_600_000));
           return new Response(
             `You've used your full Aria allowance (${usage.limit} messages). It resets in about ${hoursLeft}h. Add your own API key in Settings for unlimited use.`,
-            { status: 429 },
+            {
+              status: 429,
+              headers: {
+                "Retry-After": String(Math.max(60, Math.ceil(msLeft / 1000))),
+                "X-Aria-Usage-Limit": String(usage.limit),
+                "X-Aria-Usage-Reset": usage.resetAt,
+              },
+            },
           );
         }
 
@@ -346,7 +396,9 @@ export const Route = createFileRoute("/api/chat")({
             tools: ariaTools,
             stopWhen: stepCountIs(8),
             messages: convertToModelMessages(body.messages),
-
+            onError: async () => {
+              await releaseUsage(auth.userId);
+            },
             onFinish: async ({ text }) => {
               if (!body.threadId) return;
               await auth.client.from("messages").insert({
@@ -361,14 +413,23 @@ export const Route = createFileRoute("/api/chat")({
                 .eq("id", body.threadId);
             },
           });
-          return result.toUIMessageStreamResponse({ originalMessages: body.messages });
+          return result.toUIMessageStreamResponse({
+            originalMessages: body.messages,
+            headers: {
+              "X-Aria-Usage-Used": String(usage.used),
+              "X-Aria-Usage-Limit": String(usage.limit),
+              "X-Aria-Usage-Reset": usage.resetAt,
+            },
+          });
         } catch (e) {
+          await releaseUsage(auth.userId);
           console.error("Chat failed", e, lastError);
           return new Response(
             "No provider available. Add an API key in Settings for the selected model.",
             { status: 502 },
           );
         }
+
       },
     },
   },

@@ -3,7 +3,7 @@ import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import {
   DAILY_LIMITS,
   effectivePlan,
-  USAGE_ROW_KEY,
+  
   USAGE_WINDOW_HOURS,
   type PlanId,
 } from "@/lib/aria-prompts";
@@ -21,31 +21,26 @@ export type UsageSummary = {
 export const getUsage = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
   .handler(async ({ context }): Promise<UsageSummary> => {
-    const [{ data: profile }, { data: usage }, { data: keys }] = await Promise.all([
+    const [{ data: profile }, { data: quota }, { data: keys }] = await Promise.all([
       context.supabase.from("profiles").select("plan").eq("id", context.userId).maybeSingle(),
-      context.supabase
-        .from("usage_daily")
-        .select("message_count, reset_at")
-        .eq("user_id", context.userId)
-        .eq("day", USAGE_ROW_KEY)
-        .maybeSingle(),
+      context.supabase.rpc("get_message_quota", { _window_hours: USAGE_WINDOW_HOURS }),
       context.supabase.from("user_api_keys").select("provider"),
     ]);
     const storedPlan = (((profile as { plan?: string } | null)?.plan) ?? "free") as PlanId;
     const plan = effectivePlan(storedPlan);
 
-    const now = Date.now();
-    const storedReset = usage?.reset_at ? new Date(usage.reset_at as string).getTime() : 0;
-    const expired = !usage || storedReset <= now;
+    const row = (Array.isArray(quota) ? quota[0] : quota) as
+      | { used: number; reset_at: string }
+      | undefined;
 
     return {
-      used: expired ? 0 : (usage?.message_count ?? 0),
+      used: row?.used ?? 0,
       limit: DAILY_LIMITS[plan],
       plan,
       storedPlan,
       hasOwnKeys: (keys ?? []).length > 0,
-      resetAt: new Date(
-        expired ? now + USAGE_WINDOW_HOURS * 3600_000 : storedReset,
-      ).toISOString(),
+      resetAt:
+        row?.reset_at ?? new Date(Date.now() + USAGE_WINDOW_HOURS * 3600_000).toISOString(),
     };
   });
+

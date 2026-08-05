@@ -225,6 +225,21 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      consume_message_quota: {
+        Args: { _limit: number; _user_id: string; _window_hours: number }
+        Returns: {
+          allowed: boolean
+          reset_at: string
+          used: number
+        }[]
+      }
+      get_message_quota: {
+        Args: { _window_hours: number }
+        Returns: {
+          reset_at: string
+          used: number
+        }[]
+      }
       match_memories: {
         Args: {
           _user_id: string
@@ -238,6 +253,7 @@ export type Database = {
           similarity: number
         }[]
       }
+      release_message_quota: { Args: { _user_id: string }; Returns: undefined }
     }
     Enums: {
       [_ in never]: never
