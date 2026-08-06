@@ -15,6 +15,7 @@ import { Route as AuthenticatedRouteRouteImport } from './routes/_authenticated/
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as ApiChatRouteImport } from './routes/api/chat'
 import { Route as AuthenticatedSettingsRouteImport } from './routes/_authenticated/settings'
+import { Route as AuthenticatedAdminRouteImport } from './routes/_authenticated/admin'
 import { Route as AuthenticatedChatIndexRouteImport } from './routes/_authenticated/chat.index'
 import { Route as AuthenticatedChatThreadIdRouteImport } from './routes/_authenticated/chat.$threadId'
 
@@ -47,6 +48,11 @@ const AuthenticatedSettingsRoute = AuthenticatedSettingsRouteImport.update({
   path: '/settings',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
+const AuthenticatedAdminRoute = AuthenticatedAdminRouteImport.update({
+  id: '/admin',
+  path: '/admin',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
 const AuthenticatedChatIndexRoute = AuthenticatedChatIndexRouteImport.update({
   id: '/chat/',
   path: '/chat/',
@@ -63,6 +69,7 @@ export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/auth': typeof AuthRoute
   '/verify-email': typeof VerifyEmailRoute
+  '/admin': typeof AuthenticatedAdminRoute
   '/settings': typeof AuthenticatedSettingsRoute
   '/api/chat': typeof ApiChatRoute
   '/chat/$threadId': typeof AuthenticatedChatThreadIdRoute
@@ -72,6 +79,7 @@ export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/auth': typeof AuthRoute
   '/verify-email': typeof VerifyEmailRoute
+  '/admin': typeof AuthenticatedAdminRoute
   '/settings': typeof AuthenticatedSettingsRoute
   '/api/chat': typeof ApiChatRoute
   '/chat/$threadId': typeof AuthenticatedChatThreadIdRoute
@@ -83,6 +91,7 @@ export interface FileRoutesById {
   '/_authenticated': typeof AuthenticatedRouteRouteWithChildren
   '/auth': typeof AuthRoute
   '/verify-email': typeof VerifyEmailRoute
+  '/_authenticated/admin': typeof AuthenticatedAdminRoute
   '/_authenticated/settings': typeof AuthenticatedSettingsRoute
   '/api/chat': typeof ApiChatRoute
   '/_authenticated/chat/$threadId': typeof AuthenticatedChatThreadIdRoute
@@ -94,6 +103,7 @@ export interface FileRouteTypes {
     | '/'
     | '/auth'
     | '/verify-email'
+    | '/admin'
     | '/settings'
     | '/api/chat'
     | '/chat/$threadId'
@@ -103,6 +113,7 @@ export interface FileRouteTypes {
     | '/'
     | '/auth'
     | '/verify-email'
+    | '/admin'
     | '/settings'
     | '/api/chat'
     | '/chat/$threadId'
@@ -113,6 +124,7 @@ export interface FileRouteTypes {
     | '/_authenticated'
     | '/auth'
     | '/verify-email'
+    | '/_authenticated/admin'
     | '/_authenticated/settings'
     | '/api/chat'
     | '/_authenticated/chat/$threadId'
@@ -171,6 +183,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedSettingsRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
+    '/_authenticated/admin': {
+      id: '/_authenticated/admin'
+      path: '/admin'
+      fullPath: '/admin'
+      preLoaderRoute: typeof AuthenticatedAdminRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
     '/_authenticated/chat/': {
       id: '/_authenticated/chat/'
       path: '/chat'
@@ -189,12 +208,14 @@ declare module '@tanstack/react-router' {
 }
 
 interface AuthenticatedRouteRouteChildren {
+  AuthenticatedAdminRoute: typeof AuthenticatedAdminRoute
   AuthenticatedSettingsRoute: typeof AuthenticatedSettingsRoute
   AuthenticatedChatThreadIdRoute: typeof AuthenticatedChatThreadIdRoute
   AuthenticatedChatIndexRoute: typeof AuthenticatedChatIndexRoute
 }
 
 const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
+  AuthenticatedAdminRoute: AuthenticatedAdminRoute,
   AuthenticatedSettingsRoute: AuthenticatedSettingsRoute,
   AuthenticatedChatThreadIdRoute: AuthenticatedChatThreadIdRoute,
   AuthenticatedChatIndexRoute: AuthenticatedChatIndexRoute,
@@ -213,13 +234,3 @@ const rootRouteChildren: RootRouteChildren = {
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
-
-import type { getRouter } from './router.tsx'
-import type { startInstance } from './start.ts'
-declare module '@tanstack/react-start' {
-  interface Register {
-    ssr: true
-    router: Awaited<ReturnType<typeof getRouter>>
-    config: Awaited<ReturnType<typeof startInstance.getOptions>>
-  }
-}

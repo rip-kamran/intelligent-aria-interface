@@ -296,7 +296,7 @@ export const PAYMENTS_ENABLED = false;
 
 /** The plan that is actually enforced right now. */
 export function effectivePlan(plan: PlanId): PlanId {
-  return PAYMENTS_ENABLED ? plan : plan;
+  return resolvePlan(plan);
 }
 
 /**
