@@ -14,6 +14,36 @@ export type Database = {
   }
   public: {
     Tables: {
+      error_logs: {
+        Row: {
+          created_at: string
+          detail: string | null
+          id: string
+          message: string
+          model: string | null
+          source: string
+          user_id: string | null
+        }
+        Insert: {
+          created_at?: string
+          detail?: string | null
+          id?: string
+          message: string
+          model?: string | null
+          source?: string
+          user_id?: string | null
+        }
+        Update: {
+          created_at?: string
+          detail?: string | null
+          id?: string
+          message?: string
+          model?: string | null
+          source?: string
+          user_id?: string | null
+        }
+        Relationships: []
+      }
       memories: {
         Row: {
           content: string
@@ -87,12 +117,16 @@ export type Database = {
       }
       profiles: {
         Row: {
+          admin_note: string | null
           created_at: string
           custom_instructions: string | null
           display_name: string | null
           id: string
+          last_seen_at: string | null
           memory_enabled: boolean
+          message_limit_override: number | null
           plan: string
+          plan_expires_at: string | null
           preferred_model: string
           response_length: string
           response_style: string
@@ -101,12 +135,16 @@ export type Database = {
           welcome_email_sent_at: string | null
         }
         Insert: {
+          admin_note?: string | null
           created_at?: string
           custom_instructions?: string | null
           display_name?: string | null
           id: string
+          last_seen_at?: string | null
           memory_enabled?: boolean
+          message_limit_override?: number | null
           plan?: string
+          plan_expires_at?: string | null
           preferred_model?: string
           response_length?: string
           response_style?: string
@@ -115,12 +153,16 @@ export type Database = {
           welcome_email_sent_at?: string | null
         }
         Update: {
+          admin_note?: string | null
           created_at?: string
           custom_instructions?: string | null
           display_name?: string | null
           id?: string
+          last_seen_at?: string | null
           memory_enabled?: boolean
+          message_limit_override?: number | null
           plan?: string
+          plan_expires_at?: string | null
           preferred_model?: string
           response_length?: string
           response_style?: string
@@ -220,6 +262,27 @@ export type Database = {
         }
         Relationships: []
       }
+      user_roles: {
+        Row: {
+          created_at: string
+          id: string
+          role: Database["public"]["Enums"]["app_role"]
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          role: Database["public"]["Enums"]["app_role"]
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          role?: Database["public"]["Enums"]["app_role"]
+          user_id?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
@@ -240,6 +303,13 @@ export type Database = {
           used: number
         }[]
       }
+      has_role: {
+        Args: {
+          _role: Database["public"]["Enums"]["app_role"]
+          _user_id: string
+        }
+        Returns: boolean
+      }
       match_memories: {
         Args: {
           _user_id: string
@@ -256,7 +326,7 @@ export type Database = {
       release_message_quota: { Args: { _user_id: string }; Returns: undefined }
     }
     Enums: {
-      [_ in never]: never
+      app_role: "admin" | "moderator" | "user"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -383,6 +453,8 @@ export type CompositeTypes<
 
 export const Constants = {
   public: {
-    Enums: {},
+    Enums: {
+      app_role: ["admin", "moderator", "user"],
+    },
   },
 } as const
