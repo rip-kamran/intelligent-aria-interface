@@ -95,8 +95,8 @@ function buildTools(opts: {
 // Built-in Aria (no personal API key) is capped per rolling window.
 // Reservation happens atomically in Postgres so parallel requests can't race
 // past the limit; a failed generation releases the reserved slot.
-async function reserveUsage(userId: string, plan: PlanId) {
-  const limit = DAILY_LIMITS[plan];
+async function reserveUsage(userId: string, plan: PlanId, override: number | null) {
+  const limit = resolveLimit(plan, override);
   const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
   const { data, error } = await supabaseAdmin.rpc("consume_message_quota", {
     _user_id: userId,
