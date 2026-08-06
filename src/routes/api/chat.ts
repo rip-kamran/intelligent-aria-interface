@@ -11,11 +11,9 @@ import { createClient } from "@supabase/supabase-js";
 import type { Database } from "@/integrations/supabase/types";
 import {
   MODELS,
-  DAILY_LIMITS,
   resolveLimit,
   resolvePlan,
   canUseModel,
-  effectivePlan,
   USAGE_WINDOW_HOURS,
   USAGE_ROW_KEY,
   type ModelId,
