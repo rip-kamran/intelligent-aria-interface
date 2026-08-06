@@ -11,9 +11,9 @@ import { createClient } from "@supabase/supabase-js";
 import type { Database } from "@/integrations/supabase/types";
 import {
   MODELS,
-  DAILY_LIMITS,
+  resolveLimit,
+  resolvePlan,
   canUseModel,
-  effectivePlan,
   USAGE_WINDOW_HOURS,
   USAGE_ROW_KEY,
   type ModelId,
@@ -95,8 +95,8 @@ function buildTools(opts: {
 // Built-in Aria (no personal API key) is capped per rolling window.
 // Reservation happens atomically in Postgres so parallel requests can't race
 // past the limit; a failed generation releases the reserved slot.
-async function reserveUsage(userId: string, plan: PlanId) {
-  const limit = DAILY_LIMITS[plan];
+async function reserveUsage(userId: string, plan: PlanId, override: number | null) {
+  const limit = resolveLimit(plan, override);
   const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
   const { data, error } = await supabaseAdmin.rpc("consume_message_quota", {
     _user_id: userId,
@@ -211,7 +211,7 @@ export const Route = createFileRoute("/api/chat")({
           auth.client
             .from("profiles")
             .select(
-              "preferred_model, custom_instructions, display_name, plan, memory_enabled, web_search_enabled, response_style, response_length",
+              "preferred_model, custom_instructions, display_name, plan, plan_expires_at, message_limit_override, memory_enabled, web_search_enabled, response_style, response_length",
             )
             .eq("id", auth.userId)
             .maybeSingle(),
@@ -220,9 +220,15 @@ export const Route = createFileRoute("/api/chat")({
         const keys: Record<string, string> = {};
         for (const r of keyRows ?? []) keys[r.provider as string] = r.api_key as string;
 
-        const storedPlan = (((profile as { plan?: string } | null)?.plan) ?? "free") as PlanId;
-        // Payments are not live yet — everyone is enforced on the Free tier.
-        const plan = effectivePlan(storedPlan);
+        const prof = (profile ?? {}) as {
+          plan?: string;
+          plan_expires_at?: string | null;
+          message_limit_override?: number | null;
+        };
+        const storedPlan = (prof.plan ?? "free") as PlanId;
+        // Payments aren't live, so any paid plan here was granted by an admin.
+        const plan = resolvePlan(storedPlan, prof.plan_expires_at ?? null);
+        const limitOverride = prof.message_limit_override ?? null;
         const requested: ModelId =
           body.model || (profile?.preferred_model as ModelId) || "prose";
         const modelId: ModelId = MODELS[requested] ? requested : "prose";
@@ -370,7 +376,7 @@ export const Route = createFileRoute("/api/chat")({
         }
 
         // No user key worked — fallback to built-in Aria (rate limited by plan).
-        const usage = await reserveUsage(auth.userId, plan);
+        const usage = await reserveUsage(auth.userId, plan, limitOverride);
         if (!usage.allowed) {
           const msLeft = new Date(usage.resetAt).getTime() - Date.now();
           const hoursLeft = Math.max(1, Math.ceil(msLeft / 3_600_000));
@@ -424,6 +430,14 @@ export const Route = createFileRoute("/api/chat")({
         } catch (e) {
           await releaseUsage(auth.userId);
           console.error("Chat failed", e, lastError);
+          const { logError } = await import("@/lib/admin.server");
+          await logError({
+            message: e instanceof Error ? e.message : "Chat request failed",
+            detail: String((lastError as Error | undefined)?.stack ?? lastError ?? e),
+            source: "chat",
+            model: modelId,
+            userId: auth.userId,
+          });
           return new Response(
             "No provider available. Add an API key in Settings for the selected model.",
             { status: 502 },

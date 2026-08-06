@@ -287,13 +287,34 @@ export const PLAN_LIST: PlanConfig[] = [PLANS.free, PLANS.pro, PLANS.max];
 
 
 /**
- * Payments are not live yet, so plans are a preview: everybody uses Aria on
- * the Free tier (free models + free daily limit) regardless of the plan stored
- * on their profile. Flip this to true once a payment provider is connected.
+ * Payments are not live yet, so plans are a preview: nobody can buy an upgrade.
+ * Any non-free plan on a profile was therefore granted by an admin (a gift or
+ * early access), and those grants ARE honoured. Flip this to true once a
+ * payment provider is connected.
  */
 export const PAYMENTS_ENABLED = false;
 
 /** The plan that is actually enforced right now. */
 export function effectivePlan(plan: PlanId): PlanId {
-  return PAYMENTS_ENABLED ? plan : "free";
+  return resolvePlan(plan);
+}
+
+/**
+ * Resolves the plan a user is actually on, expiring admin-granted upgrades
+ * once their end date has passed.
+ */
+export function resolvePlan(
+  plan: PlanId | null | undefined,
+  planExpiresAt?: string | null,
+): PlanId {
+  const stored = (plan ?? "free") as PlanId;
+  if (stored === "free") return "free";
+  if (planExpiresAt && new Date(planExpiresAt).getTime() <= Date.now()) return "free";
+  return stored;
+}
+
+/** The message allowance for a user, honouring an admin-set override. */
+export function resolveLimit(plan: PlanId, override?: number | null): number {
+  if (typeof override === "number" && override >= 0) return override;
+  return DAILY_LIMITS[plan];
 }

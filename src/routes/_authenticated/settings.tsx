@@ -2,6 +2,7 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { toast, Toaster } from "sonner";
 import { useServerFn } from "@tanstack/react-start";
+import { amIAdmin } from "@/lib/admin.functions";
 import { ArrowLeft, Trash2, Brain, Plus } from "lucide-react";
 import { AriaLogo } from "@/components/aria-logo";
 import { Button } from "@/components/ui/button";
@@ -181,6 +182,7 @@ function SettingsPage() {
         <div className="mb-10 flex items-center gap-3">
           <AriaLogo className="h-9 w-9" />
           <h1 className="font-display text-4xl italic">Settings</h1>
+          <AdminLink />
         </div>
 
         {/* Usage */}
@@ -485,5 +487,25 @@ function SettingsPage() {
         </section>
       </div>
     </div>
+  );
+}
+
+/** Shown only to admins: shortcut into the admin console. */
+function AdminLink() {
+  const check = useServerFn(amIAdmin);
+  const [isAdmin, setIsAdmin] = useState(false);
+  useEffect(() => {
+    check()
+      .then((r) => setIsAdmin(r.isAdmin))
+      .catch(() => {});
+  }, [check]);
+  if (!isAdmin) return null;
+  return (
+    <Link
+      to="/admin"
+      className="ml-auto flex items-center gap-1.5 rounded-lg border border-primary/40 bg-primary/10 px-3 py-1.5 text-xs text-primary hover:bg-primary/20"
+    >
+      Admin console
+    </Link>
   );
 }
