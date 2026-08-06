@@ -181,6 +181,7 @@ function SettingsPage() {
         <div className="mb-10 flex items-center gap-3">
           <AriaLogo className="h-9 w-9" />
           <h1 className="font-display text-4xl italic">Settings</h1>
+          <AdminLink />
         </div>
 
         {/* Usage */}
