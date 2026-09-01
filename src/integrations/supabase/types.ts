@@ -121,6 +121,7 @@ export type Database = {
           created_at: string
           custom_instructions: string | null
           display_name: string | null
+          efficiency: string
           id: string
           last_seen_at: string | null
           memory_enabled: boolean
@@ -139,6 +140,7 @@ export type Database = {
           created_at?: string
           custom_instructions?: string | null
           display_name?: string | null
+          efficiency?: string
           id: string
           last_seen_at?: string | null
           memory_enabled?: boolean
@@ -157,6 +159,7 @@ export type Database = {
           created_at?: string
           custom_instructions?: string | null
           display_name?: string | null
+          efficiency?: string
           id?: string
           last_seen_at?: string | null
           memory_enabled?: boolean
@@ -288,14 +291,28 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
-      consume_message_quota: {
-        Args: { _limit: number; _user_id: string; _window_hours: number }
-        Returns: {
-          allowed: boolean
-          reset_at: string
-          used: number
-        }[]
-      }
+      consume_message_quota:
+        | {
+            Args: { _limit: number; _user_id: string; _window_hours: number }
+            Returns: {
+              allowed: boolean
+              reset_at: string
+              used: number
+            }[]
+          }
+        | {
+            Args: {
+              _cost?: number
+              _limit: number
+              _user_id: string
+              _window_hours: number
+            }
+            Returns: {
+              allowed: boolean
+              reset_at: string
+              used: number
+            }[]
+          }
       get_message_quota: {
         Args: { _window_hours: number }
         Returns: {
@@ -323,7 +340,9 @@ export type Database = {
           similarity: number
         }[]
       }
-      release_message_quota: { Args: { _user_id: string }; Returns: undefined }
+      release_message_quota:
+        | { Args: { _user_id: string }; Returns: undefined }
+        | { Args: { _cost?: number; _user_id: string }; Returns: undefined }
     }
     Enums: {
       app_role: "admin" | "moderator" | "user"
