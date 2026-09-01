@@ -14,6 +14,7 @@ import {
   resolveLimit,
   resolvePlan,
   canUseModel,
+  resolveEfficiency,
   USAGE_WINDOW_HOURS,
   USAGE_ROW_KEY,
   type ModelId,
@@ -95,13 +96,19 @@ function buildTools(opts: {
 // Built-in Aria (no personal API key) is capped per rolling window.
 // Reservation happens atomically in Postgres so parallel requests can't race
 // past the limit; a failed generation releases the reserved slot.
-async function reserveUsage(userId: string, plan: PlanId, override: number | null) {
+async function reserveUsage(
+  userId: string,
+  plan: PlanId,
+  override: number | null,
+  cost: number,
+) {
   const limit = resolveLimit(plan, override);
   const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
   const { data, error } = await supabaseAdmin.rpc("consume_message_quota", {
     _user_id: userId,
     _limit: limit,
     _window_hours: USAGE_WINDOW_HOURS,
+    _cost: cost,
   });
   if (error) {
     // Fail closed: never let a counter failure become unlimited usage.
@@ -124,10 +131,10 @@ async function reserveUsage(userId: string, plan: PlanId, override: number | nul
   };
 }
 
-async function releaseUsage(userId: string) {
+async function releaseUsage(userId: string, cost: number) {
   try {
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-    await supabaseAdmin.rpc("release_message_quota", { _user_id: userId });
+    await supabaseAdmin.rpc("release_message_quota", { _user_id: userId, _cost: cost });
   } catch {
     /* best effort */
   }
@@ -140,6 +147,7 @@ type ChatBody = {
   messages?: UIMessage[];
   threadId?: string;
   model?: ModelId;
+  efficiency?: string;
 };
 
 async function verifyAndGetSupabase(request: Request) {
@@ -211,7 +219,7 @@ export const Route = createFileRoute("/api/chat")({
           auth.client
             .from("profiles")
             .select(
-              "preferred_model, custom_instructions, display_name, plan, plan_expires_at, message_limit_override, memory_enabled, web_search_enabled, response_style, response_length",
+              "preferred_model, custom_instructions, display_name, plan, plan_expires_at, message_limit_override, memory_enabled, web_search_enabled, response_style, response_length, efficiency",
             )
             .eq("id", auth.userId)
             .maybeSingle(),
@@ -246,7 +254,13 @@ export const Route = createFileRoute("/api/chat")({
           web_search_enabled?: boolean;
           response_style?: string;
           response_length?: string;
+          efficiency?: string;
         };
+        const effort = resolveEfficiency(
+          body.efficiency && ["low", "mid", "max"].includes(body.efficiency)
+            ? body.efficiency
+            : prefs.efficiency,
+        );
         const memoryOn = prefs.memory_enabled !== false;
         const webSearchOn = prefs.web_search_enabled !== false;
         const ariaTools = buildTools({
@@ -288,6 +302,8 @@ export const Route = createFileRoute("/api/chat")({
         if (styleHint || lengthHint) {
           system += `\n\n<response_style>\n${[styleHint, lengthHint].filter(Boolean).join("\n")}\n</response_style>`;
         }
+
+        system += `\n\n<effort_mode>\nEffort: ${effort.label}. ${effort.hint}\n</effort_mode>`;
 
         // Inject relevant long-term memories for this turn.
         const lastUser = [...body.messages].reverse().find((m) => m.role === "user");
@@ -351,7 +367,9 @@ export const Route = createFileRoute("/api/chat")({
               model,
               system,
               tools: ariaTools,
-              stopWhen: stepCountIs(8),
+              stopWhen: stepCountIs(effort.maxSteps),
+              temperature: effort.temperature,
+              maxOutputTokens: effort.maxOutputTokens,
               messages: convertToModelMessages(body.messages),
 
               onFinish: async ({ text }) => {
@@ -376,7 +394,7 @@ export const Route = createFileRoute("/api/chat")({
         }
 
         // No user key worked — fallback to built-in Aria (rate limited by plan).
-        const usage = await reserveUsage(auth.userId, plan, limitOverride);
+        const usage = await reserveUsage(auth.userId, plan, limitOverride, effort.cost);
         if (!usage.allowed) {
           const msLeft = new Date(usage.resetAt).getTime() - Date.now();
           const hoursLeft = Math.max(1, Math.ceil(msLeft / 3_600_000));
@@ -400,10 +418,12 @@ export const Route = createFileRoute("/api/chat")({
             model,
             system,
             tools: ariaTools,
-            stopWhen: stepCountIs(8),
+            stopWhen: stepCountIs(effort.maxSteps),
+            temperature: effort.temperature,
+            maxOutputTokens: effort.maxOutputTokens,
             messages: convertToModelMessages(body.messages),
             onError: async () => {
-              await releaseUsage(auth.userId);
+              await releaseUsage(auth.userId, effort.cost);
             },
             onFinish: async ({ text }) => {
               if (!body.threadId) return;
@@ -428,7 +448,7 @@ export const Route = createFileRoute("/api/chat")({
             },
           });
         } catch (e) {
-          await releaseUsage(auth.userId);
+          await releaseUsage(auth.userId, effort.cost);
           console.error("Chat failed", e, lastError);
           const { logError } = await import("@/lib/admin.server");
           await logError({

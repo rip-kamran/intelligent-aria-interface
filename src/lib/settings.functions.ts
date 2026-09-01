@@ -1,7 +1,13 @@
 import { createServerFn } from "@tanstack/react-start";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { z } from "zod";
-import { MODEL_IDS, canUseModel, type ModelId, type PlanId } from "@/lib/aria-prompts";
+import {
+  MODEL_IDS,
+  EFFICIENCY_IDS,
+  canUseModel,
+  type ModelId,
+  type PlanId,
+} from "@/lib/aria-prompts";
 
 export const getProfile = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
@@ -9,7 +15,7 @@ export const getProfile = createServerFn({ method: "GET" })
     const { data, error } = await context.supabase
       .from("profiles")
       .select(
-        "display_name, custom_instructions, preferred_model, plan, memory_enabled, web_search_enabled, response_style, response_length",
+        "display_name, custom_instructions, preferred_model, plan, memory_enabled, web_search_enabled, response_style, response_length, efficiency",
       )
       .eq("id", context.userId)
       .maybeSingle();
@@ -24,6 +30,7 @@ export const getProfile = createServerFn({ method: "GET" })
         web_search_enabled: true,
         response_style: "default",
         response_length: "balanced",
+        efficiency: "mid",
       }
     );
   });
@@ -50,6 +57,7 @@ export const updateProfile = createServerFn({ method: "POST" })
         web_search_enabled: z.boolean().optional(),
         response_style: z.enum(RESPONSE_STYLES).optional(),
         response_length: z.enum(RESPONSE_LENGTHS).optional(),
+        efficiency: z.enum(EFFICIENCY_IDS).optional(),
       })
       .parse(d),
   )

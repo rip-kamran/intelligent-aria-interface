@@ -13,6 +13,72 @@ export type ModelId =
 
 export type PlanId = "free" | "pro" | "max";
 
+/**
+ * Effort / efficiency modes. Higher effort lets Aria think longer, use more
+ * tool steps and write more, and costs more of the message allowance.
+ */
+export type EfficiencyId = "low" | "mid" | "max";
+
+export type EfficiencyConfig = {
+  id: EfficiencyId;
+  label: string;
+  blurb: string;
+  /** Max tool/reasoning steps per reply. */
+  maxSteps: number;
+  /** Max output tokens per reply. */
+  maxOutputTokens: number;
+  temperature: number;
+  /** How many messages this reply deducts from the allowance. */
+  cost: number;
+  /** Extra guidance appended to the system prompt. */
+  hint: string;
+};
+
+export const EFFICIENCY_LEVELS: Record<EfficiencyId, EfficiencyConfig> = {
+  low: {
+    id: "low",
+    label: "Low",
+    blurb: "Fastest. Short, direct answers, minimal browsing.",
+    maxSteps: 3,
+    maxOutputTokens: 800,
+    temperature: 0.5,
+    cost: 1,
+    hint: "Optimise for speed. Answer directly and briefly, skip preamble, and only use tools when the answer is impossible without them.",
+  },
+  mid: {
+    id: "mid",
+    label: "Mid",
+    blurb: "Balanced speed, depth and tool use. Recommended.",
+    maxSteps: 6,
+    maxOutputTokens: 2000,
+    temperature: 0.7,
+    cost: 1,
+    hint: "Balance speed and depth. Use tools when they clearly improve accuracy.",
+  },
+  max: {
+    id: "max",
+    label: "Max",
+    blurb: "Deepest reasoning, more research steps, longer answers. Uses more of your allowance.",
+    maxSteps: 12,
+    maxOutputTokens: 6000,
+    temperature: 0.8,
+    cost: 3,
+    hint: "Maximise quality. Reason carefully step by step, verify facts with search when useful, and give thorough, well-structured answers with examples.",
+  },
+};
+
+export const EFFICIENCY_LIST: EfficiencyConfig[] = [
+  EFFICIENCY_LEVELS.low,
+  EFFICIENCY_LEVELS.mid,
+  EFFICIENCY_LEVELS.max,
+];
+
+export const EFFICIENCY_IDS = ["low", "mid", "max"] as const;
+
+export function resolveEfficiency(value: string | null | undefined): EfficiencyConfig {
+  return EFFICIENCY_LEVELS[(value as EfficiencyId) ?? "mid"] ?? EFFICIENCY_LEVELS.mid;
+}
+
 // The full system prompt text for each model lives in src/lib/prompts/*.server.ts
 // and is assembled server-side in src/lib/model-prompts.server.ts.
 
