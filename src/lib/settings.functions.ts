@@ -57,6 +57,7 @@ export const updateProfile = createServerFn({ method: "POST" })
         web_search_enabled: z.boolean().optional(),
         response_style: z.enum(RESPONSE_STYLES).optional(),
         response_length: z.enum(RESPONSE_LENGTHS).optional(),
+        efficiency: z.enum(EFFICIENCY_IDS).optional(),
       })
       .parse(d),
   )
