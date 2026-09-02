@@ -7,6 +7,8 @@ import { Button } from "@/components/ui/button";
 
 export const Route = createFileRoute("/verify-email")({
   ssr: false,
+  validateSearch: (search: Record<string, unknown>): { email?: string } =>
+    typeof search['email'] === "string" ? { email: search['email'] as string } : {},
   head: () => ({
     meta: [
       { title: "Verify your email — Aria" },
@@ -22,7 +24,8 @@ export const Route = createFileRoute("/verify-email")({
 
 function VerifyEmailPage() {
   const navigate = useNavigate();
-  const [email, setEmail] = useState<string | null>(null);
+  const { email: pendingEmail } = Route.useSearch();
+  const [email, setEmail] = useState<string | null>(pendingEmail ?? null);
   const [sending, setSending] = useState(false);
   const [checking, setChecking] = useState(false);
 
@@ -32,7 +35,9 @@ function VerifyEmailPage() {
       const { data } = await supabase.auth.getUser();
       if (!active) return;
       if (!data.user) {
-        navigate({ to: "/auth", replace: true });
+        // Sign-up with email confirmation returns no session, so keep showing
+        // this screen when we know which address is pending.
+        if (!pendingEmail) navigate({ to: "/auth", replace: true });
         return;
       }
       setEmail(data.user.email ?? null);
@@ -44,7 +49,7 @@ function VerifyEmailPage() {
       active = false;
       clearInterval(timer);
     };
-  }, [navigate]);
+  }, [navigate, pendingEmail]);
 
   const resend = async () => {
     if (!email) return;
