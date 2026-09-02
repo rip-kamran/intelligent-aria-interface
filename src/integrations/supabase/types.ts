@@ -14,6 +14,30 @@ export type Database = {
   }
   public: {
     Tables: {
+      credit_ledger: {
+        Row: {
+          amount: number
+          created_at: string
+          id: string
+          reason: string
+          user_id: string
+        }
+        Insert: {
+          amount: number
+          created_at?: string
+          id?: string
+          reason: string
+          user_id: string
+        }
+        Update: {
+          amount?: number
+          created_at?: string
+          id?: string
+          reason?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       error_logs: {
         Row: {
           created_at: string
@@ -119,6 +143,7 @@ export type Database = {
         Row: {
           admin_note: string | null
           created_at: string
+          credits: number
           custom_instructions: string | null
           display_name: string | null
           efficiency: string
@@ -138,6 +163,7 @@ export type Database = {
         Insert: {
           admin_note?: string | null
           created_at?: string
+          credits?: number
           custom_instructions?: string | null
           display_name?: string | null
           efficiency?: string
@@ -157,6 +183,7 @@ export type Database = {
         Update: {
           admin_note?: string | null
           created_at?: string
+          credits?: number
           custom_instructions?: string | null
           display_name?: string | null
           efficiency?: string
@@ -329,6 +356,14 @@ export type Database = {
           id: string
           kind: string
           similarity: number
+        }[]
+      }
+      redeem_credits_for_plan: {
+        Args: { _cost: number; _days: number; _plan: string }
+        Returns: {
+          credits: number
+          plan: string
+          plan_expires_at: string
         }[]
       }
       release_message_quota: {
