@@ -31,11 +31,15 @@ function AuthPage() {
   useEffect(() => {
     supabase.auth.getSession().then(({ data }) => {
       if (!data.session) return;
-      navigate({
-        to: data.session.user.email_confirmed_at ? "/chat" : "/verify-email",
-        search: data.session.user.email_confirmed_at ? undefined : { email: data.session.user.email },
-        replace: true,
-      });
+      if (data.session.user.email_confirmed_at) {
+        navigate({ to: "/chat", replace: true });
+      } else {
+        navigate({
+          to: "/verify-email",
+          search: { email: data.session.user.email },
+          replace: true,
+        });
+      }
     });
   }, [navigate]);
 
