@@ -7,6 +7,9 @@ import { Button } from "@/components/ui/button";
 
 export const Route = createFileRoute("/verify-email")({
   ssr: false,
+  validateSearch: (search: Record<string, unknown>) => ({
+    email: typeof search['email'] === "string" ? (search['email'] as string) : undefined,
+  }),
   head: () => ({
     meta: [
       { title: "Verify your email — Aria" },
