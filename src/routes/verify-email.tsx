@@ -49,7 +49,7 @@ function VerifyEmailPage() {
       active = false;
       clearInterval(timer);
     };
-  }, [navigate]);
+  }, [navigate, pendingEmail]);
 
   const resend = async () => {
     if (!email) return;
