@@ -384,3 +384,34 @@ export function resolveLimit(plan: PlanId, override?: number | null): number {
   if (typeof override === "number" && override >= 0) return override;
   return DAILY_LIMITS[plan];
 }
+
+/* ------------------------------------------------------------------ */
+/* Credits                                                             */
+/* ------------------------------------------------------------------ */
+
+/** Credit packs users will be able to buy once payments go live. */
+export type CreditPack = {
+  id: string;
+  credits: number;
+  price: string;
+  blurb: string;
+  highlight?: boolean;
+};
+
+export const CREDIT_PACKS: CreditPack[] = [
+  { id: "starter", credits: 100, price: "£10", blurb: "A taste of Pro." },
+  { id: "plus", credits: 550, price: "£50", blurb: "Best value — 10% bonus credits.", highlight: true },
+  { id: "power", credits: 1200, price: "£100", blurb: "20% bonus credits for heavy users." },
+];
+
+/** What 30 days of each plan costs in credits. */
+export const PLAN_CREDIT_COST: Record<Exclude<PlanId, "free">, number> = {
+  pro: 150,
+  max: 900,
+};
+
+/** Days of access granted per redemption. */
+export const PLAN_REDEEM_DAYS = 30;
+
+/** Credit purchases aren't live yet — same reason as PAYMENTS_ENABLED. */
+export const CREDIT_PURCHASE_ENABLED = false;
