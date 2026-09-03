@@ -58,6 +58,8 @@ export const adminUpdateUser = createServerFn({ method: "POST" })
         adminNote: z.string().max(1000).nullable().optional(),
         resetUsage: z.boolean().optional(),
         makeAdmin: z.boolean().optional(),
+        creditsDelta: z.number().int().min(-1_000_000).max(1_000_000).optional(),
+        creditsReason: z.string().max(200).optional(),
       })
       .parse(d),
   )

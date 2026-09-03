@@ -400,6 +400,8 @@ function UserDrawer({
   const [limit, setLimit] = useState(user.limitOverride?.toString() ?? "");
   const [expires, setExpires] = useState(user.planExpiresAt?.slice(0, 10) ?? "");
   const [note, setNote] = useState(user.adminNote ?? "");
+  const [creditsDelta, setCreditsDelta] = useState("");
+  const [creditsReason, setCreditsReason] = useState("");
   const [resetUsage, setResetUsage] = useState(false);
   const [makeAdmin, setMakeAdmin] = useState(user.isAdmin);
   const [saving, setSaving] = useState(false);
@@ -418,6 +420,9 @@ function UserDrawer({
           adminNote: note.trim() === "" ? null : note,
           resetUsage,
           makeAdmin,
+          ...(creditsDelta.trim() === "" || Number(creditsDelta) === 0
+            ? {}
+            : { creditsDelta: Number(creditsDelta), creditsReason: creditsReason.trim() || undefined }),
         },
       });
       onChanged();
@@ -483,6 +488,27 @@ function UserDrawer({
                 value={expires}
                 onChange={(e) => setExpires(e.target.value)}
                 className="mt-1.5 w-full rounded-lg border border-border/60 bg-background/60 px-3 py-2 text-sm outline-none focus:border-primary"
+              />
+            </div>
+          </div>
+
+          <div className="rounded-lg border border-border/60 bg-background/40 p-3">
+            <div className="flex items-center justify-between">
+              <label className="text-xs text-muted-foreground">Credits</label>
+              <span className="text-xs text-foreground">Balance: {user.credits}</span>
+            </div>
+            <div className="mt-1.5 grid gap-2 sm:grid-cols-2">
+              <input
+                value={creditsDelta}
+                onChange={(e) => setCreditsDelta(e.target.value.replace(/[^0-9-]/g, ""))}
+                placeholder="Add / remove (e.g. 250 or -50)"
+                className="w-full rounded-lg border border-border/60 bg-background/60 px-3 py-2 text-sm outline-none focus:border-primary"
+              />
+              <input
+                value={creditsReason}
+                onChange={(e) => setCreditsReason(e.target.value)}
+                placeholder="Reason (optional)"
+                className="w-full rounded-lg border border-border/60 bg-background/60 px-3 py-2 text-sm outline-none focus:border-primary"
               />
             </div>
           </div>

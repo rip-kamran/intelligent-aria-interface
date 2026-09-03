@@ -11,6 +11,11 @@ import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
 import {
+  CREDIT_PACKS,
+  CREDIT_PURCHASE_ENABLED,
+  EFFICIENCY_LIST,
+  PLAN_CREDIT_COST,
+  PLAN_REDEEM_DAYS,
   MODEL_LIST,
   MODELS,
   PLANS,
@@ -21,6 +26,7 @@ import {
   type ModelId,
   type PlanId,
   type ProviderId,
+  type EfficiencyId,
 } from "@/lib/aria-prompts";
 
 import {
@@ -39,6 +45,7 @@ import {
   clearMemories,
   type MemoryRow,
 } from "@/lib/memory.functions";
+import { getCredits, redeemPlanWithCredits, type CreditsSummary } from "@/lib/credits.functions";
 import { UsageMeter, useUsage } from "@/components/usage-meter";
 
 
@@ -72,6 +79,7 @@ function SettingsPage() {
   const [webSearchEnabled, setWebSearchEnabled] = useState(true);
   const [responseStyle, setResponseStyle] = useState<string>("default");
   const [responseLength, setResponseLength] = useState<string>("balanced");
+  const [efficiency, setEfficiency] = useState<EfficiencyId>("mid");
   const { usage } = useUsage();
   const [keys, setKeys] = useState<Array<{ provider: string; masked: string }>>([]);
   const [inputs, setInputs] = useState<Record<string, string>>({});
@@ -94,6 +102,7 @@ function SettingsPage() {
         setWebSearchEnabled(prof.web_search_enabled !== false);
         setResponseStyle((prof.response_style as string) || "default");
         setResponseLength((prof.response_length as string) || "balanced");
+        setEfficiency(((prof.efficiency as EfficiencyId) || "mid"));
       })
       .catch(() => {});
 
@@ -114,6 +123,7 @@ function SettingsPage() {
           web_search_enabled: webSearchEnabled,
           response_style: responseStyle as (typeof RESPONSE_STYLES)[number],
           response_length: responseLength as (typeof RESPONSE_LENGTHS)[number],
+          efficiency,
         },
       });
       toast.success("Saved");
@@ -252,6 +262,8 @@ function SettingsPage() {
           </div>
         </section>
 
+        <CreditsSection />
+
         {/* Personalization */}
 
         <section className="mb-10 rounded-2xl border border-border/60 bg-card/50 p-6 backdrop-blur">
@@ -331,6 +343,33 @@ function SettingsPage() {
                     </option>
                   ))}
                 </select>
+              </div>
+            </div>
+
+            <div>
+              <Label>Effort mode</Label>
+              <p className="mt-1 text-xs text-muted-foreground">
+                How hard Aria works on each reply. Max thinks longer and uses more of your allowance.
+              </p>
+              <div className="mt-2 grid gap-2 sm:grid-cols-3">
+                {EFFICIENCY_LIST.map((e) => (
+                  <button
+                    key={e.id}
+                    type="button"
+                    onClick={() => setEfficiency(e.id)}
+                    className={`rounded-xl border p-3 text-left transition-colors ${
+                      efficiency === e.id
+                        ? "border-primary/60 bg-primary/5"
+                        : "border-border/50 bg-background/40 hover:bg-accent/40"
+                    }`}
+                  >
+                    <span className="text-sm font-medium">{e.label}</span>
+                    <span className="mt-1 block text-[11px] text-muted-foreground">{e.blurb}</span>
+                    <span className="mt-1 block text-[10px] text-muted-foreground">
+                      Costs {e.cost} message{e.cost > 1 ? "s" : ""}
+                    </span>
+                  </button>
+                ))}
               </div>
             </div>
 
@@ -507,5 +546,113 @@ function AdminLink() {
     >
       Admin console
     </Link>
+  );
+}
+
+function CreditsSection() {
+  const load = useServerFn(getCredits);
+  const redeem = useServerFn(redeemPlanWithCredits);
+  const [summary, setSummary] = useState<CreditsSummary | null>(null);
+  const [busy, setBusy] = useState(false);
+
+  const refresh = () => load().then(setSummary).catch(() => {});
+  useEffect(() => {
+    refresh();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const handleRedeem = async (plan: "pro" | "max") => {
+    setBusy(true);
+    try {
+      await redeem({ data: { plan } });
+      toast.success(`Aria ${plan === "pro" ? "Pro" : "Max"} unlocked for ${PLAN_REDEEM_DAYS} days`);
+      await refresh();
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Couldn't redeem credits");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const balance = summary?.credits ?? 0;
+
+  return (
+    <section className="mb-10 rounded-2xl border border-border/60 bg-card/50 p-6 backdrop-blur">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div>
+          <h2 className="text-lg font-medium">Credits</h2>
+          <p className="mt-1 text-sm text-muted-foreground">
+            Spend credits on Aria Pro or Max — no subscription needed.
+          </p>
+        </div>
+        <span className="rounded-full border border-primary/40 bg-primary/10 px-3 py-1 text-sm text-primary">
+          {balance.toLocaleString()} credits
+        </span>
+      </div>
+
+      <div className="mt-5 grid gap-3 md:grid-cols-3">
+        {CREDIT_PACKS.map((pack) => (
+          <div
+            key={pack.id}
+            className={`rounded-xl border p-4 ${
+              pack.highlight ? "border-primary/50 bg-primary/5" : "border-border/50 bg-background/40"
+            }`}
+          >
+            <div className="flex items-baseline justify-between">
+              <h3 className="font-medium">{pack.credits.toLocaleString()} credits</h3>
+              <span className="text-sm">{pack.price}</span>
+            </div>
+            <p className="mt-1 text-xs text-muted-foreground">{pack.blurb}</p>
+            <Button
+              size="sm"
+              variant="secondary"
+              disabled
+              className="mt-4 w-full rounded-lg"
+            >
+              {CREDIT_PURCHASE_ENABLED ? "Buy credits" : "Coming soon"}
+            </Button>
+          </div>
+        ))}
+      </div>
+
+      <div className="mt-6 grid gap-3 sm:grid-cols-2">
+        {(["pro", "max"] as const).map((p) => (
+          <div key={p} className="rounded-xl border border-border/50 bg-background/40 p-4">
+            <div className="flex items-baseline justify-between">
+              <h3 className="font-medium">Aria {PLANS[p].name}</h3>
+              <span className="text-sm">{PLAN_CREDIT_COST[p]} credits</span>
+            </div>
+            <p className="mt-1 text-xs text-muted-foreground">
+              {PLAN_REDEEM_DAYS} days of {PLANS[p].name} access.
+            </p>
+            <Button
+              size="sm"
+              className="mt-4 w-full rounded-lg"
+              disabled={busy || balance < PLAN_CREDIT_COST[p]}
+              onClick={() => handleRedeem(p)}
+            >
+              {balance < PLAN_CREDIT_COST[p] ? "Not enough credits" : `Redeem ${PLAN_CREDIT_COST[p]} credits`}
+            </Button>
+          </div>
+        ))}
+      </div>
+
+      {summary && summary.history.length > 0 && (
+        <div className="mt-6">
+          <p className="text-xs uppercase tracking-[0.14em] text-muted-foreground">Recent activity</p>
+          <ul className="mt-2 space-y-1.5 text-sm">
+            {summary.history.map((h) => (
+              <li key={h.id} className="flex items-center justify-between gap-3 border-b border-border/40 py-1.5">
+                <span className="truncate text-muted-foreground">{h.reason}</span>
+                <span className={h.amount >= 0 ? "text-primary" : "text-muted-foreground"}>
+                  {h.amount >= 0 ? "+" : ""}
+                  {h.amount}
+                </span>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+    </section>
   );
 }

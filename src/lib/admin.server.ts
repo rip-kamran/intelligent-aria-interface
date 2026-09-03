@@ -29,6 +29,7 @@ export type AdminUser = {
   planExpiresAt: string | null;
   limitOverride: number | null;
   limit: number;
+  credits: number;
   used: number;
   resetAt: string | null;
   isAdmin: boolean;
@@ -77,6 +78,7 @@ export async function listUsers(search: string, limit: number): Promise<AdminUse
       planExpiresAt: (p['plan_expires_at'] as string) ?? null,
       limitOverride: override,
       limit: resolveLimit(eff, override),
+      credits: (p['credits'] as number) ?? 0,
       used: usageRow?.message_count ?? 0,
       resetAt: usageRow?.reset_at ?? null,
       isAdmin: adminIds.has(u.id),
@@ -217,6 +219,8 @@ export async function updateUser(input: {
   adminNote?: string | null;
   resetUsage?: boolean;
   makeAdmin?: boolean;
+  creditsDelta?: number;
+  creditsReason?: string;
 }): Promise<void> {
   const db = await admin();
   const patch: Record<string, unknown> = { id: input.userId };
@@ -228,6 +232,26 @@ export async function updateUser(input: {
   if (Object.keys(patch).length > 1) {
     const { error } = await db.from("profiles").upsert(patch as never);
     if (error) throw new Error(error.message);
+  }
+
+  if (input.creditsDelta) {
+    const { data: prof } = await db
+      .from("profiles")
+      .select("credits")
+      .eq("id", input.userId)
+      .maybeSingle();
+    const current = ((prof ?? {}) as { credits?: number }).credits ?? 0;
+    const next = Math.max(0, current + input.creditsDelta);
+    const { error: cErr } = await db
+      .from("profiles")
+      .update({ credits: next } as never)
+      .eq("id", input.userId);
+    if (cErr) throw new Error(cErr.message);
+    await db.from("credit_ledger").insert({
+      user_id: input.userId,
+      amount: next - current,
+      reason: input.creditsReason?.slice(0, 200) || "Adjusted by admin",
+    } as never);
   }
 
   if (input.resetUsage) {
