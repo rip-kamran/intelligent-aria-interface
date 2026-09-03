@@ -37,7 +37,15 @@ import { AriaLogo } from "@/components/aria-logo";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
-import { MODELS, canUseModel, effectivePlan, type ModelId, type PlanId } from "@/lib/aria-prompts";
+import {
+  MODELS,
+  EFFICIENCY_LIST,
+  canUseModel,
+  effectivePlan,
+  type ModelId,
+  type PlanId,
+  type EfficiencyId,
+} from "@/lib/aria-prompts";
 import { getProfile } from "@/lib/settings.functions";
 
 import {
@@ -89,10 +97,15 @@ function ChatThread() {
   const [query, setQuery] = useState("");
   const [showArchived, setShowArchived] = useState(false);
   const { usage, refresh: refreshUsage } = useUsage();
+  const [efficiency, setEfficiency] = useState<EfficiencyId>("mid");
 
   useEffect(() => {
     profileFn()
-      .then((p) => setPlan(effectivePlan((((p as { plan?: string }).plan ?? "free") as PlanId))))
+      .then((p) => {
+        const prof = p as { plan?: string; efficiency?: string };
+        setPlan(effectivePlan(((prof.plan ?? "free") as PlanId)));
+        if (prof.efficiency) setEfficiency(prof.efficiency as EfficiencyId);
+      })
       .catch(() => {});
   }, [profileFn]);
 
@@ -310,6 +323,24 @@ function ChatThread() {
           <div className="flex items-center gap-2">
             <AriaLogo className="h-5 w-5" />
             <ModelSelector value={threadModel} plan={plan} onChange={changeModel} />
+            <div className="hidden items-center gap-0.5 rounded-full border border-border/60 bg-card/50 p-0.5 sm:flex">
+              {EFFICIENCY_LIST.map((e) => (
+                <button
+                  key={e.id}
+                  type="button"
+                  onClick={() => setEfficiency(e.id)}
+                  title={e.blurb}
+                  className={cn(
+                    "rounded-full px-2.5 py-1 text-[11px] transition-colors",
+                    efficiency === e.id
+                      ? "bg-primary/15 text-primary"
+                      : "text-muted-foreground hover:text-foreground",
+                  )}
+                >
+                  {e.label}
+                </button>
+              ))}
+            </div>
             {plan === "free" && (
               <Link
                 to="/settings"
@@ -333,6 +364,7 @@ function ChatThread() {
           <ChatConversation
             threadId={threadId}
             model={threadModel}
+            efficiency={efficiency}
             initialMessages={initial}
             onFirstMessage={() => {
               refreshThreads();
@@ -384,12 +416,14 @@ function ExportButton({ messages, title }: { messages: UIMessage[]; title: strin
 function ChatConversation({
   threadId,
   model,
+  efficiency,
   initialMessages,
   onFirstMessage,
   onComplete,
 }: {
   threadId: string;
   model: ModelId;
+  efficiency: EfficiencyId;
   initialMessages: UIMessage[];
   onFirstMessage: () => void;
   onComplete: () => void;
@@ -405,7 +439,7 @@ function ChatConversation({
     onFinish: () => onComplete(),
     transport: new DefaultChatTransport({
       api: "/api/chat",
-      body: { threadId, model },
+      body: { threadId, model, efficiency },
       fetch: async (input, init) => {
         const { data } = await supabase.auth.getSession();
         const headers = new Headers(init?.headers);
