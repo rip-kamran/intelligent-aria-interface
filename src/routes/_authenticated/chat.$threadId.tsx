@@ -433,6 +433,8 @@ function ChatConversation({
   threadId,
   model,
   efficiency,
+  plan,
+  userId,
   initialMessages,
   onFirstMessage,
   onComplete,
@@ -440,14 +442,27 @@ function ChatConversation({
   threadId: string;
   model: ModelId;
   efficiency: EfficiencyId;
+  plan: PlanId;
+  userId: string;
   initialMessages: UIMessage[];
   onFirstMessage: () => void;
   onComplete: () => void;
 }) {
   const [input, setInput] = useState("");
+  const [attachments, setAttachments] = useState<Attachment[]>([]);
+  const [uploading, setUploading] = useState(false);
+  const [voiceOn, setVoiceOn] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
+  const fileRef = useRef<HTMLInputElement>(null);
   const wasFirst = useRef(initialMessages.length === 0);
+  const spokenRef = useRef<string | null>(null);
+  const attachmentCap = maxAttachments(plan);
+
+  const { speak, stop: stopSpeaking, speaking } = useSpeech();
+  const { toggle: toggleMic, listening, supported: micSupported } = useDictation((text) =>
+    setInput((prev) => (prev ? `${prev} ${text}` : text)),
+  );
 
   const { messages, sendMessage, status, error } = useChat({
     id: threadId,
@@ -482,14 +497,70 @@ function ChatConversation({
     }
   }, [status, messages, onFirstMessage]);
 
+  // Voice mode: read each finished Aria reply aloud once.
+  useEffect(() => {
+    if (!voiceOn || status !== "ready") return;
+    const last = messages[messages.length - 1];
+    if (!last || last.role !== "assistant" || spokenRef.current === last.id) return;
+    spokenRef.current = last.id;
+    const text = last.parts
+      .map((p) => (p.type === "text" ? p.text : ""))
+      .join("")
+      .trim();
+    if (text) speak(text).catch((e: Error) => toast(e.message || "Voice is unavailable."));
+  }, [voiceOn, status, messages, speak]);
+
   const isLoading = status === "submitted" || status === "streaming";
+
+  const pickFiles = async (list: FileList | null) => {
+    if (!list || list.length === 0) return;
+    const files = Array.from(list);
+    if (attachments.length + files.length > attachmentCap) {
+      toast(`You can attach up to ${attachmentCap} files per message.`, {
+        description: plan === "free" ? "Pro and Max allow more." : undefined,
+      });
+      return;
+    }
+    setUploading(true);
+    try {
+      for (const file of files) {
+        const problem = await validateFile(file);
+        if (problem) {
+          toast(problem);
+          continue;
+        }
+        const uploaded = await uploadAttachment(file, userId, threadId);
+        setAttachments((prev) => [...prev, uploaded]);
+      }
+    } catch (e) {
+      toast((e as Error).message || "That upload didn't work.");
+    } finally {
+      setUploading(false);
+      if (fileRef.current) fileRef.current.value = "";
+    }
+  };
+
   const submit = async () => {
     const text = input.trim();
-    if (!text || isLoading) return;
+    if ((!text && attachments.length === 0) || isLoading || uploading) return;
+    const files = attachments;
     setInput("");
-    await sendMessage({ text });
+    setAttachments([]);
+    await sendMessage({
+      role: "user",
+      parts: [
+        ...files.map((f) => ({
+          type: "file" as const,
+          url: f.url,
+          mediaType: f.mediaType,
+          filename: f.name,
+        })),
+        ...(text ? [{ type: "text" as const, text }] : []),
+      ],
+    });
   };
   const isEmpty = messages.length === 0;
+
 
   return (
     <>
