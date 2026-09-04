@@ -20,8 +20,22 @@ import {
   Archive,
   ArchiveRestore,
   Globe,
-
+  Paperclip,
+  Mic,
+  Volume2,
+  VolumeX,
+  Loader2,
+  FileText,
+  Film,
 } from "lucide-react";
+import {
+  uploadAttachment,
+  validateFile,
+  maxAttachments,
+  formatBytes,
+  type Attachment,
+} from "@/lib/attachments";
+import { useSpeech, useDictation } from "@/lib/use-voice";
 import {
   DropdownMenu,
   DropdownMenuContent,
