@@ -1,9 +1,9 @@
-import ariaLogo from "@/assets/aria-logo.png";
+import ariaLogoAsset from "@/assets/aria-logo.png.asset.json";
 
 export function AriaLogo({ className = "h-8 w-8" }: { className?: string }) {
   return (
     <img
-      src={ariaLogo}
+      src={ariaLogoAsset.url}
       alt="Aria"
       width={512}
       height={512}
