@@ -379,6 +379,8 @@ function ChatThread() {
             threadId={threadId}
             model={threadModel}
             efficiency={efficiency}
+            plan={plan}
+            userId={user.id}
             initialMessages={initial}
             onFirstMessage={() => {
               refreshThreads();
