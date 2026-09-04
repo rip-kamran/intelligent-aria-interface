@@ -599,13 +599,62 @@ function ChatConversation({
 
       <div className="border-t border-border/60 bg-background/80 backdrop-blur">
         <div className="mx-auto max-w-3xl px-4 py-4 md:px-8">
+          {attachments.length > 0 && (
+            <div className="mb-2 flex flex-wrap gap-2">
+              {attachments.map((a) => (
+                <span
+                  key={a.id}
+                  className="inline-flex max-w-[220px] items-center gap-2 rounded-lg border border-border/60 bg-card/60 px-2.5 py-1.5 text-xs"
+                >
+                  {a.mediaType.startsWith("image/") ? (
+                    <img src={a.url} alt="" className="h-6 w-6 rounded object-cover" />
+                  ) : a.mediaType.startsWith("video/") ? (
+                    <Film className="h-4 w-4 text-primary" />
+                  ) : (
+                    <FileText className="h-4 w-4 text-primary" />
+                  )}
+                  <span className="truncate">{a.name}</span>
+                  <span className="text-muted-foreground">{formatBytes(a.size)}</span>
+                  <button
+                    type="button"
+                    onClick={() => setAttachments((prev) => prev.filter((x) => x.id !== a.id))}
+                    className="text-muted-foreground hover:text-foreground"
+                    aria-label={`Remove ${a.name}`}
+                  >
+                    <X className="h-3 w-3" />
+                  </button>
+                </span>
+              ))}
+            </div>
+          )}
           <form
             onSubmit={(e) => {
               e.preventDefault();
               submit();
             }}
-            className="relative flex items-end gap-2 rounded-2xl border border-border/70 bg-card/60 p-2 pl-4 transition-colors focus-within:border-primary/60 focus-within:ring-glow"
+            className="relative flex items-end gap-2 rounded-2xl border border-border/70 bg-card/60 p-2 pl-2 transition-colors focus-within:border-primary/60 focus-within:ring-glow"
           >
+            <input
+              ref={fileRef}
+              type="file"
+              multiple
+              hidden
+              onChange={(e) => pickFiles(e.target.files)}
+            />
+            <button
+              type="button"
+              onClick={() => fileRef.current?.click()}
+              disabled={uploading || attachments.length >= attachmentCap}
+              className="mb-0.5 rounded-xl p-2 text-muted-foreground transition-colors hover:bg-accent hover:text-foreground disabled:opacity-40"
+              aria-label="Attach files"
+              title={`Attach images, files or video (up to ${attachmentCap})`}
+            >
+              {uploading ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <Paperclip className="h-4 w-4" />
+              )}
+            </button>
             <textarea
               ref={inputRef}
               value={input}
@@ -617,14 +666,47 @@ function ChatConversation({
                 }
               }}
               rows={1}
-              placeholder="Message Aria…"
+              placeholder={listening ? "Listening…" : "Message Aria…"}
               className="max-h-40 min-h-[36px] flex-1 resize-none bg-transparent py-2 text-[15px] leading-relaxed text-foreground placeholder:text-muted-foreground focus:outline-none"
               autoFocus
             />
+            {micSupported && (
+              <button
+                type="button"
+                onClick={toggleMic}
+                className={cn(
+                  "mb-0.5 rounded-xl p-2 transition-colors hover:bg-accent",
+                  listening ? "text-primary animate-pulse" : "text-muted-foreground hover:text-foreground",
+                )}
+                aria-label={listening ? "Stop listening" : "Speak your message"}
+                title="Speak your message"
+              >
+                <Mic className="h-4 w-4" />
+              </button>
+            )}
+            <button
+              type="button"
+              onClick={() => {
+                if (voiceOn) stopSpeaking();
+                setVoiceOn((v) => !v);
+              }}
+              className={cn(
+                "mb-0.5 rounded-xl p-2 transition-colors hover:bg-accent",
+                voiceOn ? "text-primary" : "text-muted-foreground hover:text-foreground",
+              )}
+              aria-label={voiceOn ? "Turn voice mode off" : "Turn voice mode on"}
+              title="Voice mode — Aria reads replies aloud"
+            >
+              {voiceOn ? (
+                <Volume2 className={cn("h-4 w-4", speaking && "animate-pulse")} />
+              ) : (
+                <VolumeX className="h-4 w-4" />
+              )}
+            </button>
             <Button
               type="submit"
               size="icon"
-              disabled={!input.trim() || isLoading}
+              disabled={(!input.trim() && attachments.length === 0) || isLoading || uploading}
               className="h-9 w-9 shrink-0 rounded-xl"
               aria-label="Send"
             >
@@ -636,6 +718,7 @@ function ChatConversation({
           </p>
         </div>
       </div>
+
     </>
   );
 }
