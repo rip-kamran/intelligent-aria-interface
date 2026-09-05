@@ -22,6 +22,7 @@ import {
   Globe,
   Paperclip,
   Mic,
+  AudioLines,
   Volume2,
   VolumeX,
   Loader2,
@@ -36,6 +37,7 @@ import {
   type Attachment,
 } from "@/lib/attachments";
 import { useSpeech, useDictation } from "@/lib/use-voice";
+import { VoiceOverlay } from "@/components/voice-overlay";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -452,6 +454,7 @@ function ChatConversation({
   const [attachments, setAttachments] = useState<Attachment[]>([]);
   const [uploading, setUploading] = useState(false);
   const [voiceOn, setVoiceOn] = useState(false);
+  const [voiceMode, setVoiceMode] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const fileRef = useRef<HTMLInputElement>(null);
@@ -703,6 +706,18 @@ function ChatConversation({
                 <VolumeX className="h-4 w-4" />
               )}
             </button>
+            <button
+              type="button"
+              onClick={() => {
+                stopSpeaking();
+                setVoiceMode(true);
+              }}
+              className="mb-0.5 rounded-xl p-2 text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+              aria-label="Open voice mode"
+              title="Talk with Aria"
+            >
+              <AudioLines className="h-4 w-4" />
+            </button>
             <Button
               type="submit"
               size="icon"
@@ -712,6 +727,7 @@ function ChatConversation({
             >
               <Send className="h-4 w-4" />
             </Button>
+
           </form>
           <p className="mt-2 text-center text-[11px] text-muted-foreground">
             Aria may make mistakes. Verify important information.
@@ -719,6 +735,19 @@ function ChatConversation({
         </div>
       </div>
 
+      <VoiceOverlay
+        open={voiceMode}
+        onClose={() => setVoiceMode(false)}
+        busy={isLoading}
+        reply={
+          status === "ready" && messages[messages.length - 1]?.role === "assistant"
+            ? extractText(messages[messages.length - 1]!) || null
+            : null
+        }
+        onSend={(text) => {
+          void sendMessage({ role: "user", parts: [{ type: "text", text }] });
+        }}
+      />
     </>
   );
 }

@@ -2,8 +2,9 @@ import { createFileRoute } from "@tanstack/react-router";
 import { createClient } from "@supabase/supabase-js";
 import type { Database } from "@/integrations/supabase/types";
 
-/** Aria's default ElevenLabs voice (Sarah — warm, natural). */
-const DEFAULT_VOICE = "EXAVITQu4vr4xnSDxMaL";
+/** Aria's default voice (warm, natural). */
+const DEFAULT_VOICE = "alloy";
+const ALLOWED_VOICES = new Set(["alloy", "ash", "ballad", "coral", "echo", "sage", "shimmer", "verse"]);
 const MAX_CHARS = 4000;
 
 async function verifyUser(request: Request) {
@@ -37,44 +38,47 @@ export const Route = createFileRoute("/api/tts")({
         const userId = await verifyUser(request);
         if (!userId) return new Response("Unauthorized", { status: 401 });
 
-        const apiKey = process.env["ELEVENLABS_API_KEY"];
+        const apiKey = process.env["LOVABLE_API_KEY"];
         if (!apiKey) {
           return new Response("Voice mode isn't configured yet.", { status: 503 });
         }
 
-        let body: { text?: string; voiceId?: string };
+        let body: { text?: string; voice?: string };
         try {
-          body = (await request.json()) as { text?: string; voiceId?: string };
+          body = (await request.json()) as { text?: string; voice?: string };
         } catch {
           return new Response("Invalid JSON body", { status: 400 });
         }
         const text = (body.text ?? "").trim().slice(0, MAX_CHARS);
         if (!text) return new Response("Nothing to speak", { status: 400 });
-        const voiceId = /^[A-Za-z0-9]{10,40}$/.test(body.voiceId ?? "")
-          ? body.voiceId!
-          : DEFAULT_VOICE;
+        const voice = ALLOWED_VOICES.has(body.voice ?? "") ? body.voice! : DEFAULT_VOICE;
 
-        const res = await fetch(
-          `https://api.elevenlabs.io/v1/text-to-speech/${voiceId}/stream?output_format=mp3_44100_128`,
-          {
-            method: "POST",
-            headers: { "xi-api-key": apiKey, "Content-Type": "application/json" },
-            body: JSON.stringify({
-              text,
-              model_id: "eleven_turbo_v2_5",
-              voice_settings: {
-                stability: 0.45,
-                similarity_boost: 0.75,
-                style: 0.3,
-                use_speaker_boost: true,
-              },
-            }),
+        const res = await fetch("https://ai.gateway.lovable.dev/v1/audio/speech", {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${apiKey}`,
+            "Content-Type": "application/json",
           },
-        );
+          body: JSON.stringify({
+            model: "openai/gpt-4o-mini-tts",
+            input: text,
+            voice,
+            response_format: "mp3",
+            instructions:
+              "You are Aria, a warm, calm and intelligent assistant. Speak naturally and conversationally, with a friendly, unhurried tone.",
+          }),
+        });
 
         if (!res.ok || !res.body) {
           const detail = await res.text().catch(() => "");
-          return new Response(detail || "Voice generation failed.", { status: res.status || 502 });
+          if (res.status === 429) {
+            return new Response("Voice is busy right now — try again in a moment.", { status: 429 });
+          }
+          if (res.status === 402) {
+            return new Response("Voice credits have run out.", { status: 402 });
+          }
+          console.error("[tts] gateway error", res.status, detail.slice(0, 300));
+          return new Response("Voice generation failed.", { status: res.status || 502 });
         }
 
         return new Response(res.body, {
