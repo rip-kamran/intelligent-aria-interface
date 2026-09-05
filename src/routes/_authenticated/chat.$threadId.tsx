@@ -703,6 +703,18 @@ function ChatConversation({
                 <VolumeX className="h-4 w-4" />
               )}
             </button>
+            <button
+              type="button"
+              onClick={() => {
+                stopSpeaking();
+                setVoiceMode(true);
+              }}
+              className="mb-0.5 rounded-xl p-2 text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+              aria-label="Open voice mode"
+              title="Talk with Aria"
+            >
+              <AudioLines className="h-4 w-4" />
+            </button>
             <Button
               type="submit"
               size="icon"
@@ -712,6 +724,7 @@ function ChatConversation({
             >
               <Send className="h-4 w-4" />
             </Button>
+
           </form>
           <p className="mt-2 text-center text-[11px] text-muted-foreground">
             Aria may make mistakes. Verify important information.
