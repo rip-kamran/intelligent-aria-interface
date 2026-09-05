@@ -22,6 +22,7 @@ import {
   Globe,
   Paperclip,
   Mic,
+  AudioLines,
   Volume2,
   VolumeX,
   Loader2,
@@ -36,6 +37,7 @@ import {
   type Attachment,
 } from "@/lib/attachments";
 import { useSpeech, useDictation } from "@/lib/use-voice";
+import { VoiceOverlay } from "@/components/voice-overlay";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -452,6 +454,7 @@ function ChatConversation({
   const [attachments, setAttachments] = useState<Attachment[]>([]);
   const [uploading, setUploading] = useState(false);
   const [voiceOn, setVoiceOn] = useState(false);
+  const [voiceMode, setVoiceMode] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const fileRef = useRef<HTMLInputElement>(null);
@@ -732,6 +735,19 @@ function ChatConversation({
         </div>
       </div>
 
+      <VoiceOverlay
+        open={voiceMode}
+        onClose={() => setVoiceMode(false)}
+        busy={isLoading}
+        reply={
+          status === "ready" && messages[messages.length - 1]?.role === "assistant"
+            ? extractText(messages[messages.length - 1]!) || null
+            : null
+        }
+        onSend={(text) => {
+          void sendMessage({ role: "user", parts: [{ type: "text", text }] });
+        }}
+      />
     </>
   );
 }
