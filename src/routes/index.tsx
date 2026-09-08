@@ -5,6 +5,7 @@ import { ArrowRight, Sparkles, Shield, Zap, Check } from "lucide-react";
 import { AriaLogo } from "@/components/aria-logo";
 import { Button } from "@/components/ui/button";
 import { PLAN_LIST, PLANS } from "@/lib/aria-prompts";
+import { SiteFooter } from "@/components/site-footer";
 
 
 export const Route = createFileRoute("/")({
@@ -215,9 +216,7 @@ function Landing() {
         </div>
       </section>
 
-      <footer className="border-t border-border/40 py-8 text-center text-xs text-muted-foreground">
-        © {new Date().getFullYear()} Aria — by Kamran (Zaid Shaik)
-      </footer>
+      <SiteFooter />
     </div>
   );
 }
