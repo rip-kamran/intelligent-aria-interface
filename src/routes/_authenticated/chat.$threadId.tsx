@@ -502,7 +502,8 @@ function ChatConversation({
 
   // Voice mode: read each finished Aria reply aloud once.
   useEffect(() => {
-    if (!voiceOn || status !== "ready") return;
+    // The full-screen voice overlay handles its own playback — don't double-speak.
+    if (!voiceOn || voiceMode || status !== "ready") return;
     const last = messages[messages.length - 1];
     if (!last || last.role !== "assistant" || spokenRef.current === last.id) return;
     spokenRef.current = last.id;
@@ -511,7 +512,7 @@ function ChatConversation({
       .join("")
       .trim();
     if (text) speak(text).catch((e: Error) => toast(e.message || "Voice is unavailable."));
-  }, [voiceOn, status, messages, speak]);
+  }, [voiceOn, voiceMode, status, messages, speak]);
 
   const isLoading = status === "submitted" || status === "streaming";
 
@@ -741,7 +742,10 @@ function ChatConversation({
         busy={isLoading}
         reply={
           status === "ready" && messages[messages.length - 1]?.role === "assistant"
-            ? extractText(messages[messages.length - 1]!) || null
+            ? {
+                id: messages[messages.length - 1]!.id,
+                text: extractText(messages[messages.length - 1]!),
+              }
             : null
         }
         onSend={(text) => {

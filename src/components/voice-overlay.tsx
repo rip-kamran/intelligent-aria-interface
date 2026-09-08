@@ -38,7 +38,7 @@ export function VoiceOverlay({
   onClose: () => void;
   onSend: (text: string) => void;
   busy: boolean;
-  reply: string | null;
+  reply: { id: string; text: string } | null;
 }) {
   const [phase, setPhase] = useState<Phase>("idle");
   const [heard, setHeard] = useState("");
@@ -111,7 +111,7 @@ export function VoiceOverlay({
       setHeard("");
       return;
     }
-    spokenRef.current = reply;
+    spokenRef.current = reply?.id ?? null;
     startListening();
     return () => {
       stopListening();
@@ -122,15 +122,15 @@ export function VoiceOverlay({
 
   // Speak each new reply, then listen again.
   useEffect(() => {
-    if (!open || !reply || busy || reply === spokenRef.current) return;
-    spokenRef.current = reply;
+    if (!open || !reply || !reply.text || busy || reply.id === spokenRef.current) return;
+    spokenRef.current = reply.id;
     setPhase("speaking");
     if (muted) {
       startListening();
       return;
     }
     let cancelled = false;
-    speak(reply)
+    speak(reply.text)
       .catch((e: Error) => toast(e.message || "Voice is unavailable."))
       .finally(() => {
         if (!cancelled && open) startListening();
