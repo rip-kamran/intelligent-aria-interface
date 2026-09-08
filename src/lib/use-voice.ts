@@ -30,12 +30,26 @@ export function useSpeech() {
       });
       if (!res.ok) throw new Error((await res.text()) || "Voice unavailable");
       const blob = await res.blob();
-      const audio = new Audio(URL.createObjectURL(blob));
+      const url = URL.createObjectURL(blob);
+      const audio = new Audio(url);
       audioRef.current = audio;
-      audio.onended = () => setSpeaking(false);
-      audio.onerror = () => setSpeaking(false);
       setSpeaking(true);
-      await audio.play();
+      // Resolve only once playback has actually finished, so callers never
+      // re-open the microphone while Aria is still talking.
+      await new Promise<void>((resolve) => {
+        const done = () => {
+          setSpeaking(false);
+          URL.revokeObjectURL(url);
+          if (audioRef.current === audio) audioRef.current = null;
+          resolve();
+        };
+        audio.onended = done;
+        audio.onerror = done;
+        audio.onpause = () => {
+          if (!audio.ended) done();
+        };
+        audio.play().catch(done);
+      });
     },
     [stop],
   );
