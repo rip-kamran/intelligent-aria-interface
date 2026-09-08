@@ -512,7 +512,7 @@ function ChatConversation({
       .join("")
       .trim();
     if (text) speak(text).catch((e: Error) => toast(e.message || "Voice is unavailable."));
-  }, [voiceOn, status, messages, speak]);
+  }, [voiceOn, voiceMode, status, messages, speak]);
 
   const isLoading = status === "submitted" || status === "streaming";
 
