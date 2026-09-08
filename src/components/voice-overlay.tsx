@@ -79,13 +79,17 @@ export function VoiceOverlay({
       setPhase("idle");
     };
     rec.onend = () => {
+      const wasCurrent = recRef.current === rec;
       recRef.current = null;
       setHeard((current) => {
         const text = current.trim();
-        if (text) {
+        // Ignore results from a session we deliberately cancelled (e.g. Aria
+        // started speaking), and never send twice for the same utterance.
+        if (wasCurrent && text && !sendingRef.current) {
+          sendingRef.current = true;
           setPhase("thinking");
           onSend(text);
-        } else {
+        } else if (wasCurrent && !sendingRef.current) {
           setPhase("idle");
         }
         return "";
