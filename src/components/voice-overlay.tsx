@@ -46,6 +46,7 @@ export function VoiceOverlay({
   const [supported, setSupported] = useState(true);
   const recRef = useRef<Recognition | null>(null);
   const spokenRef = useRef<string | null>(null);
+  const sendingRef = useRef(false);
   const { speak, stop: stopSpeaking } = useSpeech();
 
   const stopListening = useCallback(() => {
