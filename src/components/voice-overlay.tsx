@@ -46,6 +46,7 @@ export function VoiceOverlay({
   const [supported, setSupported] = useState(true);
   const recRef = useRef<Recognition | null>(null);
   const spokenRef = useRef<string | null>(null);
+  const sendingRef = useRef(false);
   const { speak, stop: stopSpeaking } = useSpeech();
 
   const stopListening = useCallback(() => {
@@ -116,6 +117,7 @@ export function VoiceOverlay({
       return;
     }
     spokenRef.current = reply?.id ?? null;
+    sendingRef.current = false;
     startListening();
     return () => {
       stopListening();
@@ -128,6 +130,7 @@ export function VoiceOverlay({
   useEffect(() => {
     if (!open || !reply || !reply.text || busy || reply.id === spokenRef.current) return;
     spokenRef.current = reply.id;
+    sendingRef.current = false;
     setPhase("speaking");
     if (muted) {
       startListening();
