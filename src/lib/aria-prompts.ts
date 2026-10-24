@@ -11,7 +11,7 @@ export type ModelId =
   | "cipher"
   | "oracle";
 
-export type PlanId = "free" | "pro" | "max";
+export type PlanId = "free" | "pro" | "max" | "enterprise";
 
 /**
  * Effort / efficiency modes. Higher effort lets Aria think longer, use more
@@ -264,7 +264,7 @@ export const MODEL_LIST: ModelConfig[] = [
 
 export const MODEL_IDS = MODEL_LIST.map((m) => m.id) as [ModelId, ...ModelId[]];
 
-const PLAN_RANK: Record<PlanId, number> = { free: 0, pro: 1, max: 2 };
+const PLAN_RANK: Record<PlanId, number> = { free: 0, pro: 1, max: 2, enterprise: 3 };
 
 export function canUseModel(plan: PlanId, model: ModelId) {
   return PLAN_RANK[plan] >= PLAN_RANK[MODELS[model].tier];
@@ -275,21 +275,28 @@ export type PlanConfig = {
   name: string;
   price: string;
   period: string;
-  dailyMessages: number;
+  /** Token budget per rolling usage window (prompt + reply tokens). */
+  windowTokens: number;
   blurb: string;
   features: string[];
   highlight?: boolean;
+  /** Sold by conversation, not self-serve. */
+  contactSales?: boolean;
 };
 
-export const FREE_DAILY_LIMIT = 30;
-export const PRO_DAILY_LIMIT = 750;
-export const MAX_DAILY_LIMIT = PRO_DAILY_LIMIT * 20;
-
-export const DAILY_LIMITS: Record<PlanId, number> = {
-  free: FREE_DAILY_LIMIT,
-  pro: PRO_DAILY_LIMIT,
-  max: MAX_DAILY_LIMIT,
+/**
+ * Chat usage is metered in tokens (prompt + context + reply), like ChatGPT and
+ * Claude, rather than a flat message count. Long prompts, big attachments and
+ * long answers use more; quick questions use very little.
+ */
+export const TOKEN_LIMITS: Record<PlanId, number> = {
+  free: 200_000,
+  pro: 5_000_000,
+  max: 100_000_000,
+  enterprise: 1_000_000_000,
 };
+/** @deprecated use TOKEN_LIMITS */
+export const DAILY_LIMITS = TOKEN_LIMITS;
 
 /** Usage allowance resets this many hours after the window started. */
 export const USAGE_WINDOW_HOURS = 12;
@@ -298,6 +305,40 @@ export const USAGE_ROW_KEY = "1970-01-01";
 /** Warn the user once they cross this fraction of their allowance. */
 export const USAGE_WARN_AT = 0.9;
 
+/** Rough token estimate (≈4 characters per token). */
+export function estimateTokens(text: string): number {
+  return Math.ceil(text.length / 4);
+}
+
+export function formatTokens(n: number): string {
+  if (n >= 1_000_000) return `${+(n / 1_000_000).toFixed(1)}M`;
+  if (n >= 1_000) return `${Math.round(n / 1_000)}K`;
+  return String(n);
+}
+
+/* ---------------- Aria Code quota (separate from chat) ---------------- */
+
+export const CODE_MODEL_IDS = ["fable", "spark", "oracle"] as const satisfies readonly ModelId[];
+export type CodeModelId = (typeof CODE_MODEL_IDS)[number];
+
+/** Free-tier Aria Code budget, in tokens. Resets every 24h and every 30 days. */
+export const CODE_BASE_DAY_TOKENS = 300_000;
+export const CODE_BASE_MONTH_TOKENS = 4_000_000;
+/** Pro gets 25% more, Max 50% more, Enterprise is a custom/unlimited pool. */
+export const CODE_MULTIPLIER: Record<PlanId, number> = {
+  free: 1,
+  pro: 1.25,
+  max: 1.5,
+  enterprise: 1000,
+};
+
+export function codeLimits(plan: PlanId) {
+  const m = CODE_MULTIPLIER[plan];
+  return {
+    day: Math.round(CODE_BASE_DAY_TOKENS * m),
+    month: Math.round(CODE_BASE_MONTH_TOKENS * m),
+  };
+}
 
 export const PLANS: Record<PlanId, PlanConfig> = {
   free: {
@@ -305,13 +346,13 @@ export const PLANS: Record<PlanId, PlanConfig> = {
     name: "Free",
     price: "£0",
     period: "forever",
-    dailyMessages: FREE_DAILY_LIMIT,
+    windowTokens: TOKEN_LIMITS.free,
     blurb: "Everything you need to get to know Aria.",
     features: [
-      `${FREE_DAILY_LIMIT} messages per day`,
+      `${formatTokens(TOKEN_LIMITS.free)} tokens every ${USAGE_WINDOW_HOURS}h`,
       "Aria Tale, Prose & Spark",
+      "Aria Code with a starter quota",
       "Unlimited chat threads, search & export",
-      "Personalisation and custom instructions",
       "Bring your own API keys",
     ],
   },
@@ -320,15 +361,15 @@ export const PLANS: Record<PlanId, PlanConfig> = {
     name: "Pro",
     price: "£15",
     period: "per month",
-    dailyMessages: PRO_DAILY_LIMIT,
+    windowTokens: TOKEN_LIMITS.pro,
     blurb: "The full Aria line-up, including Verse and Fable.",
     highlight: true,
     features: [
-      `${PRO_DAILY_LIMIT} messages per day`,
+      `${formatTokens(TOKEN_LIMITS.pro)} tokens every ${USAGE_WINDOW_HOURS}h`,
       "Unlocks Aria Verse & Fable",
+      "Aria Code with 25% more quota",
       "Plus Muse (creative) and Cipher (code)",
-      "Priority provider routing & longer context",
-      "Faster response speeds at peak times",
+      "Priority routing & longer context",
     ],
   },
   max: {
@@ -336,20 +377,35 @@ export const PLANS: Record<PlanId, PlanConfig> = {
     name: "Max",
     price: "£90–£150",
     period: "per month",
-    dailyMessages: MAX_DAILY_LIMIT,
+    windowTokens: TOKEN_LIMITS.max,
     blurb: "For people who live inside Aria all day.",
     features: [
-      `20× Pro's usage — ${MAX_DAILY_LIMIT.toLocaleString()} messages per day`,
+      `20× Pro — ${formatTokens(TOKEN_LIMITS.max)} tokens every ${USAGE_WINDOW_HOURS}h`,
       "Early access to every new Aria model",
       "Aria Oracle frontier research preview",
-      "Highest priority queue, even under load",
-      "Extended memory and larger uploads",
+      "Aria Code with 50% more quota",
       "Direct support from Kamran (Zaid Shaik)",
+    ],
+  },
+  enterprise: {
+    id: "enterprise",
+    name: "Enterprise",
+    price: "Custom",
+    period: "per team",
+    windowTokens: TOKEN_LIMITS.enterprise,
+    blurb: "Aria for your whole team, priced to its size.",
+    contactSales: true,
+    features: [
+      "Custom team seats",
+      "Custom rate limits & usage pools",
+      "Bespoke Aria Code quotas",
+      "Dedicated support",
+      "Every Aria model, including early access",
     ],
   },
 };
 
-export const PLAN_LIST: PlanConfig[] = [PLANS.free, PLANS.pro, PLANS.max];
+export const PLAN_LIST: PlanConfig[] = [PLANS.free, PLANS.pro, PLANS.max, PLANS.enterprise];
 
 
 /**
@@ -379,10 +435,10 @@ export function resolvePlan(
   return stored;
 }
 
-/** The message allowance for a user, honouring an admin-set override. */
+/** The token allowance for a user, honouring an admin-set override (tokens). */
 export function resolveLimit(plan: PlanId, override?: number | null): number {
   if (typeof override === "number" && override >= 0) return override;
-  return DAILY_LIMITS[plan];
+  return TOKEN_LIMITS[plan];
 }
 
 /* ------------------------------------------------------------------ */

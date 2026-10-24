@@ -14,6 +14,33 @@ export type Database = {
   }
   public: {
     Tables: {
+      code_usage: {
+        Row: {
+          day_reset_at: string
+          day_used: number
+          month_reset_at: string
+          month_used: number
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          day_reset_at?: string
+          day_used?: number
+          month_reset_at?: string
+          month_used?: number
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          day_reset_at?: string
+          day_used?: number
+          month_reset_at?: string
+          month_used?: number
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       credit_ledger: {
         Row: {
           amount: number
@@ -65,6 +92,36 @@ export type Database = {
           model?: string | null
           source?: string
           user_id?: string | null
+        }
+        Relationships: []
+      }
+      mcp_servers: {
+        Row: {
+          auth_header: string | null
+          created_at: string
+          enabled: boolean
+          id: string
+          name: string
+          url: string
+          user_id: string
+        }
+        Insert: {
+          auth_header?: string | null
+          created_at?: string
+          enabled?: boolean
+          id?: string
+          name: string
+          url: string
+          user_id: string
+        }
+        Update: {
+          auth_header?: string | null
+          created_at?: string
+          enabled?: boolean
+          id?: string
+          name?: string
+          url?: string
+          user_id?: string
         }
         Relationships: []
       }
@@ -318,6 +375,21 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      consume_code_quota: {
+        Args: {
+          _cost: number
+          _day_limit: number
+          _month_limit: number
+          _user_id: string
+        }
+        Returns: {
+          allowed: boolean
+          day_reset_at: string
+          day_used: number
+          month_reset_at: string
+          month_used: number
+        }[]
+      }
       consume_message_quota: {
         Args: {
           _cost?: number
