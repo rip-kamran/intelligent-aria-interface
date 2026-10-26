@@ -470,10 +470,11 @@ export const CREDIT_PACKS: CreditPack[] = [
   { id: "power", credits: 1200, price: "£100", blurb: "20% bonus credits for heavy users." },
 ];
 
-/** What 30 days of each plan costs in credits. */
+/** What 30 days of each plan costs in credits. Enterprise is priced per team, never self-serve. */
 export const PLAN_CREDIT_COST: Record<Exclude<PlanId, "free">, number> = {
   pro: 150,
   max: 900,
+  enterprise: 0,
 };
 
 /** Days of access granted per redemption. */

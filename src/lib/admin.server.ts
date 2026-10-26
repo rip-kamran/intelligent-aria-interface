@@ -104,7 +104,7 @@ export async function listUsers(search: string, limit: number): Promise<AdminUse
     .slice(0, limit);
 }
 
-const PLAN_PRICE: Record<PlanId, number> = { free: 0, pro: 15, max: 90 };
+const PLAN_PRICE: Record<PlanId, number> = { free: 0, pro: 15, max: 90, enterprise: 0 };
 
 export type AdminStats = {
   totalUsers: number;
@@ -146,7 +146,7 @@ export async function getStats(): Promise<AdminStats> {
         .gte("created_at", monthStart),
     ]);
 
-  const planCounts: Record<PlanId, number> = { free: 0, pro: 0, max: 0 };
+  const planCounts: Record<PlanId, number> = { free: 0, pro: 0, max: 0, enterprise: 0 };
   for (const p of profiles ?? []) {
     const eff = resolvePlan((p.plan as PlanId) ?? "free", (p as { plan_expires_at?: string }).plan_expires_at ?? null);
     planCounts[eff] += 1;

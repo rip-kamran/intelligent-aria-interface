@@ -25,7 +25,7 @@ import {
   amIAdmin,
 } from "@/lib/admin.functions";
 import type { AdminError, AdminStats, AdminUser } from "@/lib/admin.server";
-import { PLANS, type PlanId } from "@/lib/aria-prompts";
+import { PLANS, formatTokens, type PlanId } from "@/lib/aria-prompts";
 import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/_authenticated/admin")({
@@ -477,7 +477,7 @@ function UserDrawer({
               <input
                 value={limit}
                 onChange={(e) => setLimit(e.target.value.replace(/[^0-9]/g, ""))}
-                placeholder={`Default (${PLANS[plan].dailyMessages})`}
+                placeholder={`Default (${formatTokens(PLANS[plan].windowTokens)} tokens)`}
                 className="mt-1.5 w-full rounded-lg border border-border/60 bg-background/60 px-3 py-2 text-sm outline-none focus:border-primary"
               />
             </div>
