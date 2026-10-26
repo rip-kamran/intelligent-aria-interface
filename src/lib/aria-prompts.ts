@@ -86,6 +86,7 @@ export function resolveEfficiency(value: string | null | undefined): EfficiencyC
 
 
 export type ProviderId =
+  | "ollama"
   | "cerebras"
   | "gemini"
   | "together"
@@ -106,6 +107,15 @@ export type ProviderConfig = {
 };
 
 export const PROVIDERS: Record<ProviderId, ProviderConfig> = {
+  ollama: {
+    id: "ollama",
+    label: "Ollama Cloud",
+    baseURL: "https://ollama.com/v1",
+    defaultModel: "gpt-oss:120b",
+    keyLabel: "Ollama Cloud API Key",
+    keyPlaceholder: "...",
+    docsUrl: "https://ollama.com/settings/keys",
+  },
   cerebras: {
     id: "cerebras",
     label: "Cerebras Cloud",
