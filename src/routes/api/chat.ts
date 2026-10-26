@@ -21,7 +21,13 @@ import {
   type PlanId,
 } from "@/lib/aria-prompts";
 import { FULL_MODEL_PROMPTS } from "@/lib/model-prompts.server";
-import { createProviderModel, createLovableFallbackModel } from "@/lib/ai-gateway.server";
+import {
+  createProviderModel,
+  createLovableFallbackModel,
+  createOllamaModel,
+  getOllamaKeys,
+  nextOllamaKey,
+} from "@/lib/ai-gateway.server";
 import { duckDuckGoSearch, fetchPageText, deepSearch } from "@/lib/search.server";
 import { saveMemory, recallMemories } from "@/lib/memory.server";
 
@@ -413,7 +419,12 @@ export const Route = createFileRoute("/api/chat")({
 
 
         try {
-          const model = createLovableFallbackModel();
+          // Owner-funded Ollama Cloud pool first (round-robin across keys);
+          // Lovable AI only when no Ollama key is configured.
+          const ollamaKey = getOllamaKeys().length > 0 ? nextOllamaKey() : null;
+          const model = ollamaKey
+            ? createOllamaModel(ollamaKey)
+            : createLovableFallbackModel();
           const result = streamText({
             model,
             system,

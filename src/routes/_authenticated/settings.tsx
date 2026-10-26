@@ -23,6 +23,8 @@ import {
   PROVIDERS,
   canUseModel,
   effectivePlan,
+  formatTokens,
+  USAGE_WINDOW_HOURS,
   type ModelId,
   type PlanId,
   type ProviderId,
@@ -215,7 +217,7 @@ function SettingsPage() {
               <h2 className="text-lg font-medium">Your plan</h2>
               <p className="mt-1 text-sm text-muted-foreground">
                 You're on <span className="text-foreground">Aria {PLANS[plan].name}</span> —{" "}
-                {PLANS[plan].dailyMessages.toLocaleString()} messages per day.
+                {formatTokens(PLANS[plan].windowTokens)} tokens every {USAGE_WINDOW_HOURS} hours.
               </p>
             </div>
             <span className="rounded-full border border-primary/40 px-3 py-1 text-xs text-primary">

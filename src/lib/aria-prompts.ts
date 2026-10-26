@@ -86,6 +86,7 @@ export function resolveEfficiency(value: string | null | undefined): EfficiencyC
 
 
 export type ProviderId =
+  | "ollama"
   | "cerebras"
   | "gemini"
   | "together"
@@ -106,6 +107,15 @@ export type ProviderConfig = {
 };
 
 export const PROVIDERS: Record<ProviderId, ProviderConfig> = {
+  ollama: {
+    id: "ollama",
+    label: "Ollama Cloud",
+    baseURL: "https://ollama.com/v1",
+    defaultModel: "gpt-oss:120b",
+    keyLabel: "Ollama Cloud API Key",
+    keyPlaceholder: "...",
+    docsUrl: "https://ollama.com/settings/keys",
+  },
   cerebras: {
     id: "cerebras",
     label: "Cerebras Cloud",
@@ -196,56 +206,56 @@ export const MODELS: Record<ModelId, ModelConfig> = {
     id: "tale",
     label: "Tale",
     tagline: "Lightweight & fast",
-    chain: ["cohere", "deepseek"],
+    chain: ["ollama", "cohere", "deepseek"],
     tier: "free",
   },
   prose: {
     id: "prose",
     label: "Prose",
     tagline: "Capable, everyday worker",
-    chain: ["groq", "sambanova"],
+    chain: ["ollama", "groq", "sambanova"],
     tier: "free",
   },
   spark: {
     id: "spark",
     label: "Spark",
     tagline: "Instant answers, minimal latency",
-    chain: ["groq", "cerebras"],
+    chain: ["ollama", "groq", "cerebras"],
     tier: "free",
   },
   verse: {
     id: "verse",
     label: "Verse",
     tagline: "Reasoning & coding specialist",
-    chain: ["gemini", "together", "mistral"],
+    chain: ["ollama", "gemini", "together", "mistral"],
     tier: "pro",
   },
   muse: {
     id: "muse",
     label: "Muse",
     tagline: "Creative writing & long-form voice",
-    chain: ["mistral", "together", "cohere"],
+    chain: ["ollama", "mistral", "together", "cohere"],
     tier: "pro",
   },
   cipher: {
     id: "cipher",
     label: "Cipher",
     tagline: "Deep code, refactors & debugging",
-    chain: ["deepseek", "together", "gemini"],
+    chain: ["ollama", "deepseek", "together", "gemini"],
     tier: "pro",
   },
   fable: {
     id: "fable",
     label: "Fable",
     tagline: "Flagship — maximum capability",
-    chain: ["cerebras"],
+    chain: ["ollama", "cerebras"],
     tier: "pro",
   },
   oracle: {
     id: "oracle",
     label: "Oracle",
     tagline: "Frontier research preview",
-    chain: ["cerebras", "gemini"],
+    chain: ["ollama", "cerebras", "gemini"],
     tier: "max",
     earlyAccess: true,
   },
@@ -460,10 +470,11 @@ export const CREDIT_PACKS: CreditPack[] = [
   { id: "power", credits: 1200, price: "£100", blurb: "20% bonus credits for heavy users." },
 ];
 
-/** What 30 days of each plan costs in credits. */
+/** What 30 days of each plan costs in credits. Enterprise is priced per team, never self-serve. */
 export const PLAN_CREDIT_COST: Record<Exclude<PlanId, "free">, number> = {
   pro: 150,
   max: 900,
+  enterprise: 0,
 };
 
 /** Days of access granted per redemption. */

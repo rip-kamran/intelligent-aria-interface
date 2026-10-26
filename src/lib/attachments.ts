@@ -9,6 +9,7 @@ export const ATTACHMENT_LIMITS: Record<PlanId, number> = {
   free: 4,
   pro: 10,
   max: 20,
+  enterprise: 50,
 };
 
 export function maxAttachments(plan: PlanId): number {

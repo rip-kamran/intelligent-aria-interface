@@ -4,7 +4,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { ArrowRight, Sparkles, Shield, Zap, Check } from "lucide-react";
 import { AriaLogo } from "@/components/aria-logo";
 import { Button } from "@/components/ui/button";
-import { PLAN_LIST, PLANS } from "@/lib/aria-prompts";
+import { PLAN_LIST, PLANS, formatTokens, USAGE_WINDOW_HOURS } from "@/lib/aria-prompts";
 import { SiteFooter } from "@/components/site-footer";
 
 
@@ -195,8 +195,9 @@ function Landing() {
           ))}
         </div>
         <p className="mt-6 text-center text-xs text-muted-foreground">
-          Every account is on Free today, with {PLANS.free.dailyMessages} messages a day. Pro and
-          Max — and the models they unlock — arrive once billing goes live.
+          Every account is on Free today, with {formatTokens(PLANS.free.windowTokens)} tokens every{" "}
+          {USAGE_WINDOW_HOURS} hours. Pro and Max — and the models they unlock — arrive once
+          billing goes live.
         </p>
       </section>
 
