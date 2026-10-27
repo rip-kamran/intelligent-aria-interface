@@ -165,7 +165,7 @@ function AriaCode() {
           {CODE_MODELS.map((m) => (
             <button
               key={m.id}
-              onClick={() => setModel(m.id)}
+              onClick={() => setModel(m.id as CodeModelId)}
               className={cn(
                 "rounded-md px-3 py-1.5 text-xs transition-all",
                 model === m.id

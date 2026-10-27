@@ -151,7 +151,8 @@ export async function buildMcpTools(
     const prefix = `mcp_${slugify(server.name)}`;
     for (const def of defs) {
       const toolName = `${prefix}_${slugify(def.name)}`.slice(0, 64);
-      tools[toolName] = tool({
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const config: any = {
         description: `[${server.name}] ${(def.description ?? def.name).slice(0, 500)}`,
         inputSchema: jsonSchema(
           (def.inputSchema as never) ?? { type: "object", properties: {} },
