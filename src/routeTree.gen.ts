@@ -20,6 +20,7 @@ import { Route as VerifyEmailRouteImport } from './routes/verify-email'
 import { Route as AuthenticatedAdminRouteImport } from './routes/_authenticated/admin'
 import { Route as AuthenticatedSettingsRouteImport } from './routes/_authenticated/settings'
 import { Route as ApiChatRouteImport } from './routes/api/chat'
+import { Route as ApiCodeRouteImport } from './routes/api/code'
 import { Route as ApiTtsRouteImport } from './routes/api/tts'
 import { Route as AuthenticatedChatIndexRouteImport } from './routes/_authenticated/chat.index'
 import { Route as AuthenticatedChatThreadIdRouteImport } from './routes/_authenticated/chat.$threadId'
@@ -78,6 +79,11 @@ const ApiChatRoute = ApiChatRouteImport.update({
   path: '/api/chat',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiCodeRoute = ApiCodeRouteImport.update({
+  id: '/api/code',
+  path: '/api/code',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiTtsRoute = ApiTtsRouteImport.update({
   id: '/api/tts',
   path: '/api/tts',
@@ -106,6 +112,7 @@ export interface FileRoutesByFullPath {
   '/admin': typeof AuthenticatedAdminRoute
   '/settings': typeof AuthenticatedSettingsRoute
   '/api/chat': typeof ApiChatRoute
+  '/api/code': typeof ApiCodeRoute
   '/api/tts': typeof ApiTtsRoute
   '/chat/$threadId': typeof AuthenticatedChatThreadIdRoute
   '/chat/': typeof AuthenticatedChatIndexRoute
@@ -121,6 +128,7 @@ export interface FileRoutesByTo {
   '/admin': typeof AuthenticatedAdminRoute
   '/settings': typeof AuthenticatedSettingsRoute
   '/api/chat': typeof ApiChatRoute
+  '/api/code': typeof ApiCodeRoute
   '/api/tts': typeof ApiTtsRoute
   '/chat/$threadId': typeof AuthenticatedChatThreadIdRoute
   '/chat': typeof AuthenticatedChatIndexRoute
@@ -138,6 +146,7 @@ export interface FileRoutesById {
   '/_authenticated/admin': typeof AuthenticatedAdminRoute
   '/_authenticated/settings': typeof AuthenticatedSettingsRoute
   '/api/chat': typeof ApiChatRoute
+  '/api/code': typeof ApiCodeRoute
   '/api/tts': typeof ApiTtsRoute
   '/_authenticated/chat/$threadId': typeof AuthenticatedChatThreadIdRoute
   '/_authenticated/chat/': typeof AuthenticatedChatIndexRoute
@@ -155,6 +164,7 @@ export interface FileRouteTypes {
     | '/admin'
     | '/settings'
     | '/api/chat'
+    | '/api/code'
     | '/api/tts'
     | '/chat/$threadId'
     | '/chat/'
@@ -170,6 +180,7 @@ export interface FileRouteTypes {
     | '/admin'
     | '/settings'
     | '/api/chat'
+    | '/api/code'
     | '/api/tts'
     | '/chat/$threadId'
     | '/chat'
@@ -186,6 +197,7 @@ export interface FileRouteTypes {
     | '/_authenticated/admin'
     | '/_authenticated/settings'
     | '/api/chat'
+    | '/api/code'
     | '/api/tts'
     | '/_authenticated/chat/$threadId'
     | '/_authenticated/chat/'
@@ -201,6 +213,7 @@ export interface RootRouteChildren {
   TermsRoute: typeof TermsRoute
   VerifyEmailRoute: typeof VerifyEmailRoute
   ApiChatRoute: typeof ApiChatRoute
+  ApiCodeRoute: typeof ApiCodeRoute
   ApiTtsRoute: typeof ApiTtsRoute
 }
 
@@ -283,6 +296,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiChatRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/code': {
+      id: '/api/code'
+      path: '/api/code'
+      fullPath: '/api/code'
+      preLoaderRoute: typeof ApiCodeRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/tts': {
       id: '/api/tts'
       path: '/api/tts'
@@ -334,6 +354,7 @@ const rootRouteChildren: RootRouteChildren = {
   TermsRoute: TermsRoute,
   VerifyEmailRoute: VerifyEmailRoute,
   ApiChatRoute: ApiChatRoute,
+  ApiCodeRoute: ApiCodeRoute,
   ApiTtsRoute: ApiTtsRoute,
 }
 export const routeTree = rootRouteImport
