@@ -276,6 +276,28 @@ export const Route = createFileRoute("/api/chat")({
           memory: memoryOn,
         });
 
+        // Merge in the user's connected MCP tool servers (best-effort).
+        try {
+          const { data: mcpRows } = await auth.client
+            .from("mcp_servers")
+            .select("id, name, url, auth_header")
+            .eq("enabled", true);
+          if (mcpRows && mcpRows.length > 0) {
+            const { buildMcpTools } = await import("@/lib/mcp.server");
+            const mcpTools = await buildMcpTools(
+              mcpRows.map((r) => ({
+                id: r.id as string,
+                name: r.name as string,
+                url: r.url as string,
+                auth_header: (r.auth_header as string | null) ?? null,
+              })),
+            );
+            Object.assign(ariaTools, mcpTools);
+          }
+        } catch {
+          /* a broken tool server must never break chat */
+        }
+
         // Build system prompt with custom instructions
         let system = FULL_MODEL_PROMPTS[modelId];
         if (webSearchOn) {
