@@ -48,6 +48,13 @@ import {
   type MemoryRow,
 } from "@/lib/memory.functions";
 import { getCredits, redeemPlanWithCredits, type CreditsSummary } from "@/lib/credits.functions";
+import {
+  listMcpServers,
+  addMcpServer,
+  toggleMcpServer,
+  deleteMcpServer,
+  testMcpServer,
+} from "@/lib/mcp.functions";
 import { UsageMeter, useUsage } from "@/components/usage-meter";
 
 
@@ -526,8 +533,168 @@ function SettingsPage() {
             ))}
           </div>
         </section>
+
+        <McpServersSection />
       </div>
     </div>
+  );
+}
+
+/** Connected external tool servers (MCP) — usable in chat and Aria Code. */
+function McpServersSection() {
+  const list = useServerFn(listMcpServers);
+  const add = useServerFn(addMcpServer);
+  const toggle = useServerFn(toggleMcpServer);
+  const del = useServerFn(deleteMcpServer);
+  const test = useServerFn(testMcpServer);
+
+  type ServerRow = { id: string; name: string; url: string; enabled: boolean };
+  const [servers, setServers] = useState<ServerRow[]>([]);
+  const [name, setName] = useState("");
+  const [url, setUrl] = useState("");
+  const [authHeader, setAuthHeader] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [testing, setTesting] = useState(false);
+
+  const refresh = () => list().then((s) => setServers(s as ServerRow[])).catch(() => {});
+  useEffect(() => {
+    refresh();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const handleAdd = async () => {
+    if (!name.trim() || !url.trim()) return;
+    setBusy(true);
+    try {
+      await add({
+        data: { name: name.trim(), url: url.trim(), auth_header: authHeader.trim() || null },
+      });
+      setName("");
+      setUrl("");
+      setAuthHeader("");
+      toast.success("Tool server connected");
+      await refresh();
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Failed to connect server");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const handleTest = async () => {
+    if (!name.trim() || !url.trim()) {
+      toast.error("Enter a name and URL first");
+      return;
+    }
+    setTesting(true);
+    try {
+      const res = await test({
+        data: { name: name.trim(), url: url.trim(), auth_header: authHeader.trim() || null },
+      });
+      if (res.ok) {
+        toast.success(
+          res.toolCount > 0
+            ? `Connected — ${res.toolCount} tools available: ${res.tools.slice(0, 5).join(", ")}${res.toolCount > 5 ? "…" : ""}`
+            : "Connected, but the server exposes no tools.",
+        );
+      } else {
+        toast.error(res.error);
+      }
+    } finally {
+      setTesting(false);
+    }
+  };
+
+  return (
+    <section className="mt-10 rounded-2xl border border-border/60 bg-card/50 p-6 backdrop-blur">
+      <h2 className="text-lg font-medium">Connected tools</h2>
+      <p className="mt-1 text-sm text-muted-foreground">
+        Plug in external MCP tool servers. Aria can use their tools in both chat
+        and Aria Code — for example GitHub, Notion, Linear or your own APIs.
+      </p>
+
+      <div className="mt-5 space-y-3">
+        {servers.length === 0 && (
+          <p className="text-sm text-muted-foreground">No tools connected yet.</p>
+        )}
+        {servers.map((s) => (
+          <div
+            key={s.id}
+            className="flex items-center gap-3 rounded-xl border border-border/50 bg-background/40 px-4 py-3"
+          >
+            <div className="min-w-0 flex-1">
+              <p className="truncate text-sm font-medium">{s.name}</p>
+              <p className="truncate text-xs text-muted-foreground">{s.url}</p>
+            </div>
+            <Switch
+              checked={s.enabled}
+              onCheckedChange={async (enabled) => {
+                await toggle({ data: { id: s.id, enabled } });
+                await refresh();
+              }}
+              aria-label={`Enable ${s.name}`}
+            />
+            <button
+              onClick={async () => {
+                await del({ data: { id: s.id } });
+                await refresh();
+              }}
+              className="rounded p-1.5 text-muted-foreground hover:bg-accent hover:text-destructive"
+              aria-label={`Remove ${s.name}`}
+            >
+              <Trash2 className="h-4 w-4" />
+            </button>
+          </div>
+        ))}
+      </div>
+
+      <div className="mt-6 space-y-3 rounded-xl border border-dashed border-border/60 p-4">
+        <div className="grid gap-3 sm:grid-cols-2">
+          <div>
+            <Label htmlFor="mcp-name" className="text-xs">Name</Label>
+            <Input
+              id="mcp-name"
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              placeholder="GitHub"
+              className="mt-1 h-9 text-sm"
+              maxLength={60}
+            />
+          </div>
+          <div>
+            <Label htmlFor="mcp-url" className="text-xs">Server URL (https)</Label>
+            <Input
+              id="mcp-url"
+              value={url}
+              onChange={(e) => setUrl(e.target.value)}
+              placeholder="https://mcp.example.com/mcp"
+              className="mt-1 h-9 text-sm"
+            />
+          </div>
+        </div>
+        <div>
+          <Label htmlFor="mcp-auth" className="text-xs">
+            Authorization header <span className="text-muted-foreground">(optional)</span>
+          </Label>
+          <Input
+            id="mcp-auth"
+            type="password"
+            value={authHeader}
+            onChange={(e) => setAuthHeader(e.target.value)}
+            placeholder="Bearer …"
+            className="mt-1 h-9 text-sm"
+          />
+        </div>
+        <div className="flex gap-2">
+          <Button size="sm" variant="outline" onClick={handleTest} disabled={testing || busy}>
+            {testing ? "Testing…" : "Test connection"}
+          </Button>
+          <Button size="sm" onClick={handleAdd} disabled={busy || testing || !name.trim() || !url.trim()}>
+            <Plus className="mr-1 h-3.5 w-3.5" /> Connect
+          </Button>
+        </div>
+      </div>
+    </section>
   );
 }
 
