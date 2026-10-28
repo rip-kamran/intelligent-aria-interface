@@ -164,7 +164,8 @@ export async function buildMcpTools(
             return { error: e instanceof Error ? e.message : "Tool call failed" };
           }
         },
-      });
+      };
+      tools[toolName] = tool(config);
     }
   }
   return tools;

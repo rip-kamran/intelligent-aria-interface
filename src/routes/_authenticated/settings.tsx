@@ -62,7 +62,12 @@ export const Route = createFileRoute("/_authenticated/settings")({
   head: () => ({
     meta: [
       { title: "Settings — Aria" },
-      { name: "robots", content: "noindex" },
+      { name: "description", content: "Manage your Aria preferences, models, memory and connected tools." },
+{ property: "og:title", content: "Settings — Aria" },
+{ property: "og:description", content: "Manage your Aria preferences, models, memory and connected tools." },
+{ property: "og:type", content: "website" },
+{ name: "twitter:card", content: "summary" },
+{ name: "robots", content: "noindex" },
     ],
   }),
   component: SettingsPage,
@@ -192,7 +197,7 @@ function SettingsPage() {
 
   return (
     <div className="min-h-screen bg-aria-hero">
-      <Toaster theme="dark" />
+      <Toaster theme="dark" position="top-right" closeButton />
       <div className="mx-auto max-w-3xl px-6 py-10">
         <Link to="/chat" className="mb-8 inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground">
           <ArrowLeft className="h-4 w-4" /> Back to chat
@@ -586,6 +591,10 @@ function McpServersSection() {
       toast.error("Enter a name and URL first");
       return;
     }
+    if (!url.trim().startsWith("https://")) {
+      toast.error("Tool servers must use a secure https:// address.");
+      return;
+    }
     setTesting(true);
     try {
       const res = await test({
@@ -600,14 +609,19 @@ function McpServersSection() {
       } else {
         toast.error(res.error);
       }
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Could not test this connection");
     } finally {
       setTesting(false);
     }
   };
 
   return (
-    <section className="mt-10 rounded-2xl border border-border/60 bg-card/50 p-6 backdrop-blur">
-      <h2 className="text-lg font-medium">Connected tools</h2>
+    <section className="mt-10 border-t border-border/60 py-6">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <h2 className="text-lg font-medium">Connected tools</h2>
+        <Button asChild size="sm" variant="outline"><Link to="/code">Aria Code</Link></Button>
+      </div>
       <p className="mt-1 text-sm text-muted-foreground">
         Plug in external MCP tool servers. Aria can use their tools in both chat
         and Aria Code — for example GitHub, Notion, Linear or your own APIs.
@@ -634,7 +648,7 @@ function McpServersSection() {
               }}
               aria-label={`Enable ${s.name}`}
             />
-            <button
+            <Button variant="ghost" size="icon"
               onClick={async () => {
                 await del({ data: { id: s.id } });
                 await refresh();
@@ -643,7 +657,7 @@ function McpServersSection() {
               aria-label={`Remove ${s.name}`}
             >
               <Trash2 className="h-4 w-4" />
-            </button>
+            </Button>
           </div>
         ))}
       </div>

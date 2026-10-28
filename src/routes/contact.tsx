@@ -16,6 +16,8 @@ export const Route = createFileRoute("/contact")({
       },
       { property: "og:title", content: "Contact Aria — Get in touch" },
       { property: "og:description", content: "Send a message to the team behind Aria." },
+      { property: "og:type", content: "website" },
+      { name: "twitter:card", content: "summary" },
     ],
   }),
   component: Contact,

@@ -12,6 +12,8 @@ export const Route = createFileRoute("/cookies")({
       },
       { property: "og:title", content: "Cookie Policy — Aria" },
       { property: "og:description", content: "The cookies Aria uses and how to control them." },
+      { property: "og:type", content: "website" },
+      { name: "twitter:card", content: "summary" },
     ],
   }),
   component: Cookies,

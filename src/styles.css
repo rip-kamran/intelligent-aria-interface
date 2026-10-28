@@ -127,3 +127,20 @@ a[href*="lovable.dev"] {
   opacity: 0 !important;
   pointer-events: none !important;
 }
+
+/* Dedicated terminal palette, scoped to Aria Code. */
+.aria-code-theme {
+  --background: oklch(0.14 0.012 160);
+  --foreground: oklch(0.96 0.01 160);
+  --card: oklch(0.17 0.014 160);
+  --muted: oklch(0.23 0.02 160);
+  --muted-foreground: oklch(0.73 0.035 160);
+  --primary: oklch(0.8 0.15 160);
+  --accent: oklch(0.25 0.03 160);
+  --ring: var(--primary);
+  --radius: 0.5rem;
+}
+
+@theme inline {
+  --color-code-warning: oklch(0.8 0.15 85);
+}

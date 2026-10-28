@@ -12,6 +12,8 @@ export const Route = createFileRoute("/terms")({
       },
       { property: "og:title", content: "Terms & Conditions — Aria" },
       { property: "og:description", content: "The terms that apply when you use Aria." },
+      { property: "og:type", content: "website" },
+      { name: "twitter:card", content: "summary" },
     ],
   }),
   component: Terms,
