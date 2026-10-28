@@ -12,6 +12,8 @@ export const Route = createFileRoute("/privacy")({
       },
       { property: "og:title", content: "Privacy Policy — Aria" },
       { property: "og:description", content: "How Aria handles your personal data." },
+      { property: "og:type", content: "website" },
+      { name: "twitter:card", content: "summary" },
     ],
   }),
   component: Privacy,

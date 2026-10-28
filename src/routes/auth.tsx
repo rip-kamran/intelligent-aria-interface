@@ -15,7 +15,11 @@ export const Route = createFileRoute("/auth")({
     meta: [
       { title: "Sign in — Aria" },
       { name: "description", content: "Sign in to Aria to save and sync your conversations." },
-      { name: "robots", content: "noindex" },
+      { property: "og:title", content: "Sign in — Aria" },
+{ property: "og:description", content: "Sign in to Aria to save and sync your conversations." },
+{ property: "og:type", content: "website" },
+{ name: "twitter:card", content: "summary" },
+{ name: "robots", content: "noindex" },
     ],
   }),
   component: AuthPage,

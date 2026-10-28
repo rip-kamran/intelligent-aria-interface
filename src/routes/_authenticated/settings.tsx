@@ -62,7 +62,12 @@ export const Route = createFileRoute("/_authenticated/settings")({
   head: () => ({
     meta: [
       { title: "Settings — Aria" },
-      { name: "robots", content: "noindex" },
+      { name: "description", content: "Manage your Aria preferences, models, memory and connected tools." },
+{ property: "og:title", content: "Settings — Aria" },
+{ property: "og:description", content: "Manage your Aria preferences, models, memory and connected tools." },
+{ property: "og:type", content: "website" },
+{ name: "twitter:card", content: "summary" },
+{ name: "robots", content: "noindex" },
     ],
   }),
   component: SettingsPage,

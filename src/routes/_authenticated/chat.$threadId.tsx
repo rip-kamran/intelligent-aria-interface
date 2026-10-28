@@ -77,8 +77,13 @@ import {
 export const Route = createFileRoute("/_authenticated/chat/$threadId")({
   head: () => ({
     meta: [
-      { title: "Chat with Aria" },
-      { name: "robots", content: "noindex" },
+      { title: "Conversation — Aria" },
+      { name: "description", content: "Your conversation with Aria, the AI assistant by Kamran." },
+{ property: "og:title", content: "Conversation — Aria" },
+{ property: "og:description", content: "Your conversation with Aria, the AI assistant by Kamran." },
+{ property: "og:type", content: "website" },
+{ name: "twitter:card", content: "summary" },
+{ name: "robots", content: "noindex" },
     ],
   }),
   component: ChatThread,
