@@ -1,3 +1,4 @@
+/// <reference types="bun" />
 import { afterEach, expect, mock, test } from "bun:test";
 import { buildMcpTools } from "./mcp.server";
 
