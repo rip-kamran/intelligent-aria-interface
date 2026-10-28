@@ -605,6 +605,8 @@ function McpServersSection() {
       } else {
         toast.error(res.error);
       }
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Could not test this connection");
     } finally {
       setTesting(false);
     }

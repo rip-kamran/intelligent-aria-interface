@@ -128,7 +128,7 @@ function AriaCode() {
   };
 
   return (
-    <div className="flex h-dvh min-w-0 flex-col bg-background aria-code-theme font-mono text-foreground">
+    <div className="flex h-dvh min-w-0 flex-col overflow-hidden bg-background aria-code-theme font-mono text-foreground">
       {/* Terminal title bar */}
       <header className="flex items-center gap-3 border-b border-primary/15 bg-card px-4 py-2.5">
         <div className="flex gap-1.5">
@@ -144,6 +144,7 @@ function AriaCode() {
         <div className="ml-auto flex items-center gap-1">
           <Button variant="ghost"
             onClick={() => { stop(); setMessages([]); setInput(""); }}
+            aria-label="New session"
             title="New session"
             className="rounded-md p-2 text-muted-foreground/60 transition-colors hover:bg-primary/10 hover:text-primary"
           >
@@ -186,7 +187,7 @@ function AriaCode() {
             </Button>
           ))}
         </div>
-        <div className="grid min-w-0 w-full flex-1 grid-cols-2 gap-x-6 gap-y-2 sm:max-w-md">
+        <div className="grid w-full min-w-0 basis-full grid-cols-2 gap-x-6 gap-y-2 sm:max-w-md sm:basis-auto sm:flex-1">
           {usage ? (
             <>
               <QuotaBar
@@ -233,7 +234,7 @@ function AriaCode() {
                     setInput(s);
                     inputRef.current?.focus();
                   }}
-                  className="flex items-center gap-2 rounded-lg border border-primary/15 bg-primary/5 px-3 py-2.5 text-muted-foreground/70 transition-colors hover:border-primary/40 hover:text-muted-foreground"
+                  className="flex h-auto items-center justify-start gap-2 whitespace-normal rounded-lg border border-primary/15 bg-primary/5 px-3 py-2.5 text-left text-muted-foreground/70 transition-colors hover:border-primary/40 hover:text-muted-foreground"
                 >
                   <ChevronRight className="h-3.5 w-3.5 shrink-0 text-primary" />
                   {s}
@@ -252,7 +253,7 @@ function AriaCode() {
               return (
                 <div key={m.id} className="flex gap-2 text-sm">
                   <span className="shrink-0 select-none text-primary">$</span>
-                  <p className="whitespace-pre-wrap text-foreground">{text}</p>
+                  <p className="min-w-0 whitespace-pre-wrap break-words text-foreground">{text}</p>
                 </div>
               );
             }
@@ -325,13 +326,13 @@ function AriaCode() {
             autoFocus
           />
           <Button variant="ghost"
-            onClick={send}
-            disabled={isLoading || !input.trim()}
+            onClick={() => isLoading ? stop() : send()}
+            disabled={!isLoading && !input.trim()}
             className="rounded-lg bg-primary/15 p-2 text-primary transition-colors hover:bg-primary/25 disabled:opacity-40"
             aria-label={isLoading ? "Stop generation" : "Send"}
           >
             {isLoading ? (
-              <Loader2 className="h-4 w-4 animate-spin" />
+              <Square className="h-4 w-4" />
             ) : (
               <Send className="h-4 w-4" />
             )}
