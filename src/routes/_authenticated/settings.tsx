@@ -197,7 +197,7 @@ function SettingsPage() {
 
   return (
     <div className="min-h-screen bg-aria-hero">
-      <Toaster theme="dark" />
+      <Toaster theme="dark" position="top-right" closeButton />
       <div className="mx-auto max-w-3xl px-6 py-10">
         <Link to="/chat" className="mb-8 inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground">
           <ArrowLeft className="h-4 w-4" /> Back to chat
@@ -589,6 +589,10 @@ function McpServersSection() {
   const handleTest = async () => {
     if (!name.trim() || !url.trim()) {
       toast.error("Enter a name and URL first");
+      return;
+    }
+    if (!url.trim().startsWith("https://")) {
+      toast.error("Tool servers must use a secure https:// address.");
       return;
     }
     setTesting(true);
