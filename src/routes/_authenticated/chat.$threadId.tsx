@@ -28,6 +28,7 @@ import {
   Loader2,
   FileText,
   Film,
+  Code2,
 } from "lucide-react";
 import {
   uploadAttachment,
@@ -305,6 +306,9 @@ function ChatThread() {
         </div>
 
         <div className="space-y-1 border-t border-border/60 p-3">
+          <Button asChild variant="ghost" className="w-full justify-start text-muted-foreground">
+            <Link to="/code"><Code2 className="h-4 w-4" /> Aria Code</Link>
+          </Button>
           <Link
             to="/settings"
             className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-sm text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"

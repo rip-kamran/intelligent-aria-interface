@@ -606,8 +606,11 @@ function McpServersSection() {
   };
 
   return (
-    <section className="mt-10 rounded-2xl border border-border/60 bg-card/50 p-6 backdrop-blur">
-      <h2 className="text-lg font-medium">Connected tools</h2>
+    <section className="mt-10 border-t border-border/60 py-6">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <h2 className="text-lg font-medium">Connected tools</h2>
+        <Button asChild size="sm" variant="outline"><Link to="/code">Aria Code</Link></Button>
+      </div>
       <p className="mt-1 text-sm text-muted-foreground">
         Plug in external MCP tool servers. Aria can use their tools in both chat
         and Aria Code — for example GitHub, Notion, Linear or your own APIs.
@@ -634,7 +637,7 @@ function McpServersSection() {
               }}
               aria-label={`Enable ${s.name}`}
             />
-            <button
+            <Button variant="ghost" size="icon"
               onClick={async () => {
                 await del({ data: { id: s.id } });
                 await refresh();
@@ -643,7 +646,7 @@ function McpServersSection() {
               aria-label={`Remove ${s.name}`}
             >
               <Trash2 className="h-4 w-4" />
-            </button>
+            </Button>
           </div>
         ))}
       </div>
