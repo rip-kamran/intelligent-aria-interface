@@ -163,6 +163,9 @@ export const Route = createFileRoute("/api/code")({
   server: {
     handlers: {
       POST: async ({ request }) => {
+        const { guardRequest } = await import("@/lib/rate-limit.server");
+        const blocked = guardRequest(request, "code", 256_000);
+        if (blocked) return blocked;
         const declaredLength = Number(request.headers.get("content-length") ?? 0);
         if (declaredLength > MAX_REQUEST_BYTES) {
           return new Response("Message payload is too large.", { status: 413 });

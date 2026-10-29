@@ -1,5 +1,4 @@
 import { Link } from "@tanstack/react-router";
-import { CONTACT_EMAIL } from "@/lib/legal";
 
 export function SiteFooter() {
   return (
@@ -15,9 +14,9 @@ export function SiteFooter() {
           <Link to="/cookies" className="transition-colors hover:text-foreground">
             Cookie Policy
           </Link>
-          <a href={`mailto:${CONTACT_EMAIL}`} className="transition-colors hover:text-foreground">
+          <Link to="/contact" className="transition-colors hover:text-foreground">
             Contact
-          </a>
+          </Link>
         </nav>
         <p>© {new Date().getFullYear()} Aria — by Kamran (Zaid Shaik)</p>
       </div>

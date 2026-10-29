@@ -153,7 +153,7 @@ function Landing() {
             are a preview of what's coming.
           </p>
         </div>
-        <div className="grid gap-5 md:grid-cols-3">
+        <div className="grid gap-5 md:grid-cols-2 lg:grid-cols-4">
           {PLAN_LIST.map((p) => (
             <div
               key={p.id}
@@ -164,7 +164,7 @@ function Landing() {
               }`}
             >
               <span className="absolute right-6 top-6 rounded-full border border-border/70 px-2.5 py-0.5 text-[10px] uppercase tracking-wide text-muted-foreground">
-                {p.id === "free" ? "Live now" : "Coming soon"}
+                {p.id === "free" ? "Live now" : p.id === "enterprise" ? "Custom" : "Coming soon"}
               </span>
               <h3 className="text-lg font-medium">{p.name}</h3>
               <div className="mt-3 flex items-baseline gap-2">
@@ -183,6 +183,12 @@ function Landing() {
               {p.id === "free" ? (
                 <Button asChild className="mt-7 h-11 rounded-full">
                   <Link to="/chat">Start free</Link>
+                </Button>
+              ) : p.id === "enterprise" ? (
+                <Button asChild variant="secondary" className="mt-7 h-11 rounded-full">
+                  <Link to="/contact" search={{ subject: "Enterprise Inquiry" }}>
+                    Contact Sales
+                  </Link>
                 </Button>
               ) : (
                 <Button

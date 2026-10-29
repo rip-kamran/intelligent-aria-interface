@@ -35,6 +35,9 @@ export const Route = createFileRoute("/api/tts")({
   server: {
     handlers: {
       POST: async ({ request }) => {
+        const { guardRequest } = await import("@/lib/rate-limit.server");
+        const blocked = guardRequest(request, "tts");
+        if (blocked) return blocked;
         const userId = await verifyUser(request);
         if (!userId) return new Response("Unauthorized", { status: 401 });
 
