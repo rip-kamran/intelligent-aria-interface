@@ -33,9 +33,13 @@ function clientKey(request: Request) {
 }
 
 /** Returns a 429/413 Response when the request should be rejected, otherwise null. */
-export function guardRequest(request: Request, scope: string): Response | null {
+export function guardRequest(
+  request: Request,
+  scope: string,
+  maxBytes = MAX_BODY_BYTES,
+): Response | null {
   const len = Number(request.headers.get("content-length") ?? 0);
-  if (len > MAX_BODY_BYTES) return new Response("Payload too large.", { status: 413 });
+  if (len > maxBytes) return new Response("Payload too large.", { status: 413 });
   const { key, isAuthed } = clientKey(request);
   const r = checkRateLimit(`${scope}:${key}`, isAuthed ? AUTH_LIMIT : GUEST_LIMIT);
   if (!r.allowed) {

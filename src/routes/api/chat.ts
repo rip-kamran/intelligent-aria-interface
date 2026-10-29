@@ -193,7 +193,7 @@ export const Route = createFileRoute("/api/chat")({
     handlers: {
       POST: async ({ request }) => {
         const { guardRequest } = await import("@/lib/rate-limit.server");
-        const blocked = guardRequest(request, "chat");
+        const blocked = guardRequest(request, "chat", 256_000);
         if (blocked) return blocked;
         // Reject oversized payloads before parsing (cheap abuse guard).
         const declaredLength = Number(request.headers.get("content-length") ?? 0);
