@@ -1,9 +1,40 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 
-/** Speaks text with Aria's ElevenLabs voice. */
+// One shared audio element, "unlocked" by the first user tap so later
+// programmatic playback (voice replies) isn't blocked by autoplay rules.
+const SILENT =
+  "data:audio/wav;base64,UklGRiQAAABXQVZFZm10IBAAAAABAAEARKwAAIhYAQACABAAZGF0YQAAAAA=";
+let sharedAudio: HTMLAudioElement | null = null;
+let unlocked = false;
+function getAudio() {
+  if (!sharedAudio) sharedAudio = new Audio();
+  return sharedAudio;
+}
+export function unlockAudio() {
+  if (unlocked || typeof window === "undefined") return;
+  const a = getAudio();
+  a.src = SILENT;
+  a.play().then(() => { unlocked = true; }).catch(() => {});
+  try {
+    const Ctx = (window as unknown as { AudioContext?: typeof AudioContext; webkitAudioContext?: typeof AudioContext }).AudioContext ??
+      (window as unknown as { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
+    if (Ctx) void new Ctx().resume();
+  } catch { /* ignore */ }
+}
+
+/** Speaks text with Aria's voice. */
 export function useSpeech() {
   const audioRef = useRef<HTMLAudioElement | null>(null);
+  useEffect(() => {
+    const onTap = () => unlockAudio();
+    window.addEventListener("pointerdown", onTap, { once: true });
+    window.addEventListener("keydown", onTap, { once: true });
+    return () => {
+      window.removeEventListener("pointerdown", onTap);
+      window.removeEventListener("keydown", onTap);
+    };
+  }, []);
   const [speaking, setSpeaking] = useState(false);
 
   const stop = useCallback(() => {
@@ -31,7 +62,8 @@ export function useSpeech() {
       if (!res.ok) throw new Error((await res.text()) || "Voice unavailable");
       const blob = await res.blob();
       const url = URL.createObjectURL(blob);
-      const audio = new Audio(url);
+      const audio = getAudio();
+      audio.src = url;
       audioRef.current = audio;
       setSpeaking(true);
       // Resolve only once playback has actually finished, so callers never
@@ -48,6 +80,7 @@ export function useSpeech() {
         audio.onpause = () => {
           if (!audio.ended) done();
         };
+        audio.onended = () => { audio.onpause = null; done(); };
         audio.play().catch(done);
       });
     },

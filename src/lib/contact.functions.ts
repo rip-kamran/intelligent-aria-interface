@@ -19,6 +19,10 @@ const escapeHtml = (value: string) =>
 export const sendContactMessage = createServerFn({ method: "POST" })
   .inputValidator((data: unknown) => contactSchema.parse(data))
   .handler(async ({ data }) => {
+    const { getRequest } = await import("@tanstack/react-start/server");
+    const { guardRequest } = await import("./rate-limit.server");
+    const blocked = guardRequest(getRequest(), "contact");
+    if (blocked) throw new Error("Too many messages — please wait a minute and try again.");
     const { sendEmail } = await import("./email.server");
     const { CONTACT_EMAIL } = await import("./legal");
 
