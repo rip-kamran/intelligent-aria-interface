@@ -482,7 +482,6 @@ function ChatConversation({
     onFinish: () => onComplete(),
     transport: new DefaultChatTransport({
       api: "/api/chat",
-      body: { threadId, model, efficiency },
       fetch: async (input, init) => {
         const { data } = await supabase.auth.getSession();
         const headers = new Headers(init?.headers);
@@ -570,7 +569,7 @@ function ChatConversation({
         })),
         ...(text ? [{ type: "text" as const, text }] : []),
       ],
-    });
+    }, { body: { threadId, model, efficiency } });
   };
   const isEmpty = messages.length === 0;
 
@@ -758,7 +757,10 @@ function ChatConversation({
             : null
         }
         onSend={(text) => {
-          void sendMessage({ role: "user", parts: [{ type: "text", text }] });
+          void sendMessage(
+            { role: "user", parts: [{ type: "text", text }] },
+            { body: { threadId, model, efficiency } },
+          );
         }}
       />
     </>

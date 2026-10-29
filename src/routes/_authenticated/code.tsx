@@ -102,7 +102,6 @@ function AriaCode() {
     onFinish: () => refreshUsage(),
     transport: new DefaultChatTransport({
       api: "/api/code",
-      body: { model },
       fetch: async (input, init) => {
         const { data } = await supabase.auth.getSession();
         const headers = new Headers(init?.headers);
@@ -124,7 +123,7 @@ function AriaCode() {
     const text = input.trim();
     if (!text || isLoading) return;
     setInput("");
-    sendMessage({ text });
+    sendMessage({ text }, { body: { model } });
   };
 
   return (
