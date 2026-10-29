@@ -20,7 +20,7 @@ export const Route = createFileRoute("/contact")({
       { name: "twitter:card", content: "summary" },
     ],
   }),
-  validateSearch: (search: Record<string, unknown>) => ({
+  validateSearch: (search: Record<string, unknown>): { subject?: string } => ({
     subject: typeof search.subject === "string" ? search.subject.slice(0, 150) : undefined,
   }),
   component: Contact,
