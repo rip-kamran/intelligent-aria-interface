@@ -20,6 +20,9 @@ export const Route = createFileRoute("/contact")({
       { name: "twitter:card", content: "summary" },
     ],
   }),
+  validateSearch: (search: Record<string, unknown>) => ({
+    subject: typeof search.subject === "string" ? search.subject.slice(0, 150) : undefined,
+  }),
   component: Contact,
 });
 
@@ -28,6 +31,7 @@ const inputClass =
 
 function Contact() {
   const send = useServerFn(sendContactMessage);
+  const { subject: presetSubject } = Route.useSearch();
   const [status, setStatus] = useState<"idle" | "sending" | "sent">("idle");
   const [error, setError] = useState<string | null>(null);
 
@@ -53,7 +57,7 @@ function Contact() {
       setStatus("idle");
       const message = err instanceof Error ? err.message : "";
       setError(
-        /valid email|too long|little more|add your name|add a subject/i.test(message)
+        /valid email|too long|little more|add your name|add a subject|too many/i.test(message)
           ? message
           : "That didn't send. Please try again, or email us directly.",
       );
@@ -100,7 +104,7 @@ function Contact() {
           </div>
           <label className="block">
             <span className="text-sm text-foreground">Subject</span>
-            <input name="subject" required maxLength={150} className={inputClass} placeholder="How can we help?" />
+            <input name="subject" defaultValue={presetSubject ?? ""} required maxLength={150} className={inputClass} placeholder="How can we help?" />
           </label>
           <label className="block">
             <span className="text-sm text-foreground">Message</span>
