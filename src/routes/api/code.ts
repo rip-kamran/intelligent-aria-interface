@@ -26,6 +26,7 @@ import {
   nextOllamaKey,
 } from "@/lib/ai-gateway.server";
 import { duckDuckGoSearch, fetchPageText, deepSearch } from "@/lib/search.server";
+import { runCommand, commandLineEnabled } from "@/lib/sandbox.server";
 
 const CODE_SYSTEM_PROMPT = `You are Aria Code, the engineering mode of Aria — an AI assistant created by Kamran (also known as Zaid Shaik). You are not a generic chatbot: you are an autonomous senior software engineer.
 
@@ -69,6 +70,23 @@ function buildCodeTools(opts: { userId: string }) {
     inputSchema: z.object({ url: z.string().describe("Absolute http(s) URL") }),
     execute: async ({ url }: { url: string }) => ({ url, text: await fetchPageText(url) }),
   });
+  if (commandLineEnabled()) {
+    tools.bash = tool({
+      description:
+        "Run a bash command in your own isolated Linux sandbox (Ubuntu, with internet, python3, node, git, pip, npm). Files persist between calls for ~10 minutes. Use it to run code, install packages, test snippets, inspect output and verify your answers. Each command times out after 60s.",
+      inputSchema: z.object({
+        command: z.string().min(1).max(4000).describe("The bash command to run"),
+        cwd: z.string().max(300).optional().describe("Working directory (default: home)"),
+      }),
+      execute: async ({ command, cwd }: { command: string; cwd?: string }) => {
+        try {
+          return { command, ...(await runCommand(opts.userId, command, cwd)) };
+        } catch (e) {
+          return { command, error: e instanceof Error ? e.message : "Command failed" };
+        }
+      },
+    });
+  }
   return tools;
 }
 
