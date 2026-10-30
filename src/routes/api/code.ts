@@ -252,6 +252,7 @@ export const Route = createFileRoute("/api/code")({
 
         let system = CODE_SYSTEM_PROMPT;
         system += `\n\n<tools>\nYou browse the live web autonomously.\n- Call web_search for current docs, versions, error messages and APIs.\n- Call deep_search or open_page to read pages in full when snippets are not enough.\n- Tools prefixed mcp_ come from servers the user connected — use them when they fit the task.\n- Never ask permission to look something up; just do it.\n</tools>`;
+        if (commandLineEnabled()) system += `\n\n<command_line>\nYou have a real bash shell via the bash tool, in a private sandbox for this user. Run code to verify it works, install packages, and show real output. Never run commands meant to attack other systems.\n</command_line>`;
         if (profile?.display_name) system += `\n\nThe user's name is ${profile.display_name}.`;
         if (profile?.custom_instructions?.trim()) {
           system += `\n\n<user_preferences>\n${profile.custom_instructions.trim()}\n</user_preferences>`;
