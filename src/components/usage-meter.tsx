@@ -1,3 +1,4 @@
+import { formatTokens } from "@/lib/aria-prompts";
 import { useEffect, useState, useCallback } from "react";
 import { useServerFn } from "@tanstack/react-start";
 import { Link } from "@tanstack/react-router";
@@ -118,7 +119,7 @@ export function UsageMeter({
           {usage.hasOwnKeys
             ? "Your own API keys are unlimited"
             : left > 0
-              ? `${left.toLocaleString()} messages left · resets ${formatCountdown(usage.resetAt)}`
+              ? `${formatTokens(left)} tokens left · resets ${formatCountdown(usage.resetAt)}`
               : `Allowance used — resets ${formatCountdown(usage.resetAt)}`}
         </span>
         {showUpgrade && (
