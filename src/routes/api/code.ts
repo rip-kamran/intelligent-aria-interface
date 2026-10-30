@@ -1,4 +1,3 @@
-import { guardRequest } from "@/lib/rate-limit.server";
 import { createFileRoute } from "@tanstack/react-router";
 import {
   convertToModelMessages,
@@ -164,8 +163,6 @@ export const Route = createFileRoute("/api/code")({
   server: {
     handlers: {
       POST: async ({ request }) => {
-        const limited = guardRequest(request, "code", 1024 * 1024);
-        if (limited) return limited;
         const { guardRequest } = await import("@/lib/rate-limit.server");
         const blocked = guardRequest(request, "code", 256_000);
         if (blocked) return blocked;

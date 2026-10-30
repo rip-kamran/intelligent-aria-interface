@@ -1,4 +1,3 @@
-import { guardRequest } from "@/lib/rate-limit.server";
 import { createFileRoute } from "@tanstack/react-router";
 import { createClient } from "@supabase/supabase-js";
 import type { Database } from "@/integrations/supabase/types";
@@ -36,8 +35,6 @@ export const Route = createFileRoute("/api/tts")({
   server: {
     handlers: {
       POST: async ({ request }) => {
-        const limited = guardRequest(request, "tts");
-        if (limited) return limited;
         const { guardRequest } = await import("@/lib/rate-limit.server");
         const blocked = guardRequest(request, "tts");
         if (blocked) return blocked;
