@@ -272,6 +272,23 @@ function AriaCode() {
                   if (part.type.startsWith("tool-") || part.type === "dynamic-tool") {
                     const toolName = part.type === "dynamic-tool" ? (part as { toolName?: string }).toolName ?? "tool" : part.type.slice(5);
                     const state = (part as { state?: string }).state;
+                    if (toolName === "bash") {
+                      const p = part as { input?: { command?: string }; output?: { stdout?: string; stderr?: string; exitCode?: number | null; error?: string; timedOut?: boolean } };
+                      const o = p.output;
+                      const text = o ? [o.stdout, o.stderr, o.error, o.timedOut ? "(timed out)" : ""].filter(Boolean).join("\n").trim() : "";
+                      return (
+                        <div key={i} className="overflow-hidden rounded-md border border-primary/20 bg-background/60 font-mono text-[11px]">
+                          <div className="flex items-center gap-2 border-b border-primary/10 px-2.5 py-1.5 text-primary/90">
+                            <span>$</span>
+                            <span className="min-w-0 flex-1 truncate">{p.input?.command ?? "…"}</span>
+                            <span className="text-muted-foreground/60">
+                              {state === "output-available" ? `exit ${o?.exitCode ?? "?"}` : state === "output-error" ? "failed" : "running…"}
+                            </span>
+                          </div>
+                          {text && <pre className="max-h-64 overflow-auto whitespace-pre-wrap break-words px-2.5 py-2 text-muted-foreground">{text}</pre>}
+                        </div>
+                      );
+                    }
                     return (
                       <div
                         key={i}

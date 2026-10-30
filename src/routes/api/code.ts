@@ -26,6 +26,7 @@ import {
   nextOllamaKey,
 } from "@/lib/ai-gateway.server";
 import { duckDuckGoSearch, fetchPageText, deepSearch } from "@/lib/search.server";
+import { runCommand, commandLineEnabled } from "@/lib/sandbox.server";
 
 const CODE_SYSTEM_PROMPT = `You are Aria Code, the engineering mode of Aria — an AI assistant created by Kamran (also known as Zaid Shaik). You are not a generic chatbot: you are an autonomous senior software engineer.
 
@@ -69,6 +70,23 @@ function buildCodeTools(opts: { userId: string }) {
     inputSchema: z.object({ url: z.string().describe("Absolute http(s) URL") }),
     execute: async ({ url }: { url: string }) => ({ url, text: await fetchPageText(url) }),
   });
+  if (commandLineEnabled()) {
+    tools.bash = tool({
+      description:
+        "Run a bash command in your own isolated Linux sandbox (Ubuntu, with internet, python3, node, git, pip, npm). Files persist between calls for ~10 minutes. Use it to run code, install packages, test snippets, inspect output and verify your answers. Each command times out after 60s.",
+      inputSchema: z.object({
+        command: z.string().min(1).max(4000).describe("The bash command to run"),
+        cwd: z.string().max(300).optional().describe("Working directory (default: home)"),
+      }),
+      execute: async ({ command, cwd }: { command: string; cwd?: string }) => {
+        try {
+          return { command, ...(await runCommand(opts.userId, command, cwd)) };
+        } catch (e) {
+          return { command, error: e instanceof Error ? e.message : "Command failed" };
+        }
+      },
+    });
+  }
   return tools;
 }
 
@@ -234,6 +252,7 @@ export const Route = createFileRoute("/api/code")({
 
         let system = CODE_SYSTEM_PROMPT;
         system += `\n\n<tools>\nYou browse the live web autonomously.\n- Call web_search for current docs, versions, error messages and APIs.\n- Call deep_search or open_page to read pages in full when snippets are not enough.\n- Tools prefixed mcp_ come from servers the user connected — use them when they fit the task.\n- Never ask permission to look something up; just do it.\n</tools>`;
+        if (commandLineEnabled()) system += `\n\n<command_line>\nYou have a real bash shell via the bash tool, in a private sandbox for this user. Run code to verify it works, install packages, and show real output. Never run commands meant to attack other systems.\n</command_line>`;
         if (profile?.display_name) system += `\n\nThe user's name is ${profile.display_name}.`;
         if (profile?.custom_instructions?.trim()) {
           system += `\n\n<user_preferences>\n${profile.custom_instructions.trim()}\n</user_preferences>`;
