@@ -11,3 +11,4 @@
 
 - Aria Code has a dedicated authenticated `/code` route and separate quota; chat and Code share the MCP registry to keep connected tools consistent.
 - Register remote MCP definitions with AI SDK `tool()` before returning the tool map; definitions alone do not make tools callable.
+- Aria Code shell commands run in per-user E2B sandboxes via hand-rolled fetch in src/lib/sandbox.server.ts; the e2b SDK imports Node-only modules that break on the edge runtime.
